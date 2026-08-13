@@ -1,0 +1,41 @@
+# Ambiente de desenvolvimento local.
+#   docker compose up --build
+# Front em http://localhost:8080  |  API em http://localhost:8010
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp
+      POSTGRES_DB: erp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp -d erp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://erp:erp@db:5432/erp
+      JWT_SECRET: dev-secret-troque-em-producao-min-32-bytes-0000
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8010:8000"
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
