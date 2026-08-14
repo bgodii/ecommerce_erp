@@ -95,6 +95,11 @@ def product_states(snap: Snapshot) -> dict[int, dict]:
             "sku": p.sku,
             "dropdown_name": p.dropdown_name,
             "estoque_atual": est,
+            # saldo real pode ser NEGATIVO: vendeu mais do que as entradas registradas.
+            # 'estoque_atual' nunca fica negativo (é a soma dos saldos dos lotes), por isso
+            # expomos os dois — o negativo denuncia compras que faltam registrar.
+            "saldo_real": total_in - total_out,
+            "deficit": max(total_out - total_in, 0),
             "valor_estoque": valor,
             "custo_medio_atual": custo_medio,
             "total_in": total_in,

@@ -14,6 +14,9 @@ export interface Product {
   dropdown_name: string
   ativo: boolean
   estoque_atual: number
+  // saldo_real pode ser negativo (vendeu mais do que as entradas registradas)
+  saldo_real: number
+  deficit: number
   valor_estoque: number
   custo_medio_atual: number
   // estoque explicado: entradas − vendas diretas − consumo em kits = estoque

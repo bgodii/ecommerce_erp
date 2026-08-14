@@ -1,10 +1,13 @@
+from datetime import date, timedelta
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.deps import CurrentUser, SessionDep
 from app.models.product import Product
-from app.schemas.product import ProductIn, ProductUpdate
+from app.models.stock_lot import StockLot
+from app.schemas.product import ProductIn, ProductUpdate, StockAdjustIn
 from app.services import engine
 from app.services.loader import load_snapshot
 
@@ -21,6 +24,8 @@ def _out(p: Product, state: dict | None) -> dict:
         "dropdown_name": p.dropdown_name,
         "ativo": p.ativo,
         "estoque_atual": state.get("estoque_atual", 0),
+        "saldo_real": state.get("saldo_real", 0),
+        "deficit": state.get("deficit", 0),
         "valor_estoque": state.get("valor_estoque", 0.0),
         "custo_medio_atual": state.get("custo_medio_atual", 0.0),
         # estoque explicado: entradas − vendas diretas − consumo em kits = estoque
@@ -83,6 +88,58 @@ async def update_product(
         raise HTTPException(status.HTTP_409_CONFLICT, "Já existe um produto com esse SKU")
     await session.refresh(p)
     return _out(p, None)
+
+
+@router.post("/{product_id}/ajuste-estoque")
+async def ajustar_estoque(
+    product_id: int, data: StockAdjustIn, user: CurrentUser, session: SessionDep
+):
+    """Acerta o estoque do produto para a quantidade informada.
+
+    Cria uma ENTRADA de acerto com a diferença, no custo informado, datada antes da
+    primeira venda (para o FIFO das vendas antigas encontrar estoque). Não altera nem
+    apaga lotes existentes — o histórico é preservado.
+    """
+    org_id = user.organization_id
+    p = await _get_owned(session, org_id, product_id)
+
+    snap = await load_snapshot(session, org_id)
+    state = engine.product_states(snap).get(product_id, {})
+    saldo_real = state.get("saldo_real", 0)
+    diff = data.estoque_atual - saldo_real
+
+    if diff == 0:
+        return {"ajuste": 0, "mensagem": "Estoque já está nesse valor — nada a fazer."}
+    if diff < 0:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"O estoque informado ({data.estoque_atual}) é menor que o calculado ({saldo_real}). "
+            "Para reduzir, registre a perda/devolução ou corrija as entradas existentes.",
+        )
+
+    # data do acerto: a informada, senão o dia anterior à venda mais antiga
+    if data.data_entrada:
+        dt = data.data_entrada
+    else:
+        datas = [s.data_venda for s in snap.sales]
+        dt = (min(datas) - timedelta(days=1)) if datas else date.today()
+
+    lot = StockLot(
+        organization_id=org_id,
+        product_id=product_id,
+        lote_code="ACERTO",
+        data_entrada=dt,
+        qty_in=diff,
+        unit_cost=data.custo_unitario,
+    )
+    session.add(lot)
+    await session.commit()
+    return {
+        "ajuste": diff,
+        "data_entrada": str(dt),
+        "custo_unitario": data.custo_unitario,
+        "mensagem": f"Entrada de acerto criada: +{diff} un a {data.custo_unitario:.2f} em {dt}.",
+    }
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -73,6 +73,31 @@ export function useSaveProduct() {
   })
 }
 
+export function useAdjustStock() {
+  const invalidate = useDomainInvalidation()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      estoque_atual,
+      custo_unitario,
+      data_entrada,
+    }: {
+      id: number
+      estoque_atual: number
+      custo_unitario: number
+      data_entrada?: string | null
+    }) =>
+      (
+        await api.post(`/products/${id}/ajuste-estoque`, {
+          estoque_atual,
+          custo_unitario,
+          data_entrada: data_entrada || null,
+        })
+      ).data,
+    onSuccess: invalidate,
+  })
+}
+
 export function useDeleteProduct() {
   const invalidate = useDomainInvalidation()
   return useMutation({ mutationFn: async (id: number) => api.delete(`/products/${id}`), onSuccess: invalidate })
