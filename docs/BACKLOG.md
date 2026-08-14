@@ -46,8 +46,9 @@ Itens de melhoria e novas funcionalidades, priorizados. Prioridade: **P0** urgen
 - [ ] **ERP-013 · Endurecer armazenamento de token (P2)** — token em `localStorage` (risco XSS). 
   **Aceite:** migrar para cookie `httpOnly`+`SameSite` (ou reduzir TTL do access e isolar).
 
-- [ ] **ERP-014 · HTTPS (P2)** — deploy atual é HTTP por IP. 
-  **Aceite:** Caddy/Let's Encrypt com domínio; redirect 80→443. (já esboçado em `deploy/README-oracle.md`)
+- [~] **ERP-014 · HTTPS (P2)** 🔧 pronto p/ plugar — falta só o domínio. Já existe `docker-compose.https.yml`
+  (Caddy + Let's Encrypt automático) + `deploy/Caddyfile`; basta apontar o DNS (registro A), abrir a 443
+  e subir com o compose de HTTPS (`DOMAIN` no `.env.production`). Passo a passo em `deploy/README-oracle.md`.
 
 ## 2. Escala / Performance
 

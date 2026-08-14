@@ -5,9 +5,12 @@
 set -euo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-$HOME/ecommerce_erp}"
-COMPOSE="docker compose --env-file .env.production -f docker-compose.prod.yml"
-
 cd "$PROJECT_DIR"
+
+# Escolha do compose (HTTP padrão ou HTTPS) via arquivo local na VM (não versionado):
+#   echo 'COMPOSE_FILE=docker-compose.https.yml' > .env.deploy
+[ -f .env.deploy ] && set -a && . ./.env.deploy && set +a
+COMPOSE="docker compose --env-file .env.production -f ${COMPOSE_FILE:-docker-compose.prod.yml}"
 
 echo "[deploy] atualizando código (origin/main)..."
 git fetch --all --prune

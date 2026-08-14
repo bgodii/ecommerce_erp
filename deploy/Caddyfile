@@ -1,0 +1,6 @@
+# Caddy termina o HTTPS (Let's Encrypt automático) e faz proxy pro container `web`.
+# O domínio vem da variável DOMAIN (definida no .env.production).
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:80
+}

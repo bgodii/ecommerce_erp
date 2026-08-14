@@ -174,17 +174,44 @@ bash deploy/deploy.sh
 docker compose -f docker-compose.prod.yml exec -T db pg_dump -U erp -d erp --no-owner --no-privileges > backup_$(date +%F).sql
 ```
 
-## Migrar para HTTPS depois (quando tiver domínio)
+## HTTPS com domínio (quando tiver um domínio) — já vem pronto
 
-1. Aponte um domínio (registro A) para o IP da VM e abra a porta **443** na VCN + firewall.
-2. Coloque um **Caddy** na frente (TLS automático via Let's Encrypt):
+Já existe tudo no repo: `docker-compose.https.yml` (adiciona o **Caddy**) e `deploy/Caddyfile`.
+O Caddy pega o **certificado SSL sozinho** (Let's Encrypt) e renova automático. Passos:
 
+**1. Aponte o domínio para a VM (DNS).** No seu registrador (ex.: registro.br), crie um
+**registro A** apontando para o IP público da VM:
 ```
-# Caddyfile
-seu-dominio.com {
-    reverse_proxy web:80
-}
+Tipo A   Nome @      Valor 136.248.114.139   (domínio raiz)
+Tipo A   Nome erp    Valor 136.248.114.139   (se quiser usar erp.seudominio.com.br)
 ```
 
-Adicione um serviço `caddy` ao compose expondo 80/443 e remova o `ports: 80` do `web`.
-O Caddy cuida do certificado sozinho.
+**2. Abra a porta 443** na **VCN (Security List, ingress TCP 443)** e no **firewall da VM**:
+```bash
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+**3. Configure o domínio no `.env.production`** (na VM):
+```bash
+# adicione/edite:
+DOMAIN=seudominio.com.br
+CORS_ORIGINS=["https://seudominio.com.br"]
+```
+
+**4. Suba com o compose de HTTPS:**
+```bash
+docker compose --env-file .env.production -f docker-compose.https.yml up -d --build
+```
+Acesse **https://seudominio.com.br** — cadeado válido, sem configurar certificado. Os **dados são
+preservados** (usa o mesmo volume do banco).
+
+**5. (Opcional) Deixe o CD usar HTTPS.** Para o deploy automático usar o compose de HTTPS,
+crie na VM um arquivo `.env.deploy` (fica só na VM, é gitignored):
+```bash
+echo 'COMPOSE_FILE=docker-compose.https.yml' > ~/ecommerce_erp/.env.deploy
+```
+A partir daí, cada push faz deploy em HTTPS.
+
+> Dica: o Caddy vira instalável como PWA de verdade (o ícone da tela inicial já funciona no HTTP,
+> mas o prompt "Instalar app" aparece no HTTPS).
