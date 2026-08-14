@@ -13,6 +13,7 @@ export default function Entradas() {
   const save = useSaveLot()
   const del = useDeleteLot()
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<StockLot | null>(null)
   const [err, setErr] = useState('')
   const [form, setForm] = useState<any>({
     product_id: '',
@@ -25,8 +26,22 @@ export default function Entradas() {
   const set = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
   function openNew() {
+    setEditing(null)
     setErr('')
     setForm({ product_id: '', data_entrada: todayISO(), qty_in: 1, unit_cost: 0, lote_code: '' })
+    setOpen(true)
+  }
+
+  function openEdit(l: StockLot) {
+    setEditing(l)
+    setErr('')
+    setForm({
+      product_id: String(l.product_id),
+      data_entrada: (l.data_entrada || '').slice(0, 10),
+      qty_in: l.qty_in,
+      unit_cost: l.unit_cost,
+      lote_code: l.lote_code ?? '',
+    })
     setOpen(true)
   }
 
@@ -35,6 +50,7 @@ export default function Entradas() {
     setErr('')
     try {
       await save.mutateAsync({
+        id: editing?.id,
         product_id: Number(form.product_id),
         data_entrada: form.data_entrada,
         qty_in: Number(form.qty_in),
@@ -102,9 +118,14 @@ export default function Entradas() {
                     <span className="pill">{l.status}</span>
                   </td>
                   <td>
-                    <button className="btn ghost sm neg" onClick={() => remove(l.id)}>
-                      Excluir
-                    </button>
+                    <div className="row-actions">
+                      <button className="btn ghost sm" onClick={() => openEdit(l)}>
+                        Editar
+                      </button>
+                      <button className="btn ghost sm neg" onClick={() => remove(l.id)}>
+                        Excluir
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -121,12 +142,12 @@ export default function Entradas() {
       )}
 
       {open && (
-        <Modal title="Nova entrada" onClose={() => setOpen(false)}>
+        <Modal title={editing ? 'Editar entrada' : 'Nova entrada'} onClose={() => setOpen(false)}>
           {err && <div className="error">{err}</div>}
           <form onSubmit={submit}>
             <div className="field">
               <label>Produto</label>
-              <select value={form.product_id} onChange={set('product_id')} required>
+              <select value={form.product_id} onChange={set('product_id')} required disabled={!!editing}>
                 <option value="">Selecione…</option>
                 {products?.map((p) => (
                   <option key={p.id} value={p.id}>

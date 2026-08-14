@@ -35,6 +35,23 @@ newgrp docker
 docker compose version
 ```
 
+### Swap de 2 GB — ESSENCIAL na Micro de 1 GB ⚠️
+
+A VM.Standard.E2.1.Micro (1 GB / 1 OCPU) vem **sem swap**. O ERP roda numa boa em
+~600–700 MB, mas o **build** das imagens pode estourar a RAM e ser morto (OOM). Adicione swap:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h   # confira: deve mostrar 2,0Gi de Swap
+```
+
+Com swap, `docker compose ... up -d --build` roda estável (só um pouco mais lento). Nada
+mais precisa mudar — não é necessário buildar no CI.
+
 ## 4. Liberar a porta 80 no firewall da instância ⚠️
 
 As imagens Oracle vêm com o firewall **bloqueando tudo além do SSH**. Sem este passo,

@@ -29,6 +29,7 @@ export default function BalancoDiario() {
                 <th className="num">Líquida</th>
                 <th className="num">CMV</th>
                 <th className="num">Ads</th>
+                <th className="num">Ads/venda</th>
                 <th className="num">Lucro após Ads</th>
                 <th className="num">Margem</th>
                 <th className="num">ROAS</th>
@@ -47,6 +48,7 @@ export default function BalancoDiario() {
                   <td className="num">{fmtBRL(b.receita_liquida)}</td>
                   <td className="num">{fmtBRL(b.cmv)}</td>
                   <td className="num">{fmtBRL(b.ads)}</td>
+                  <td className="num">{fmtBRL(b.ads_por_venda)}</td>
                   <td className={`num ${b.lucro_apos_ads >= 0 ? 'pos' : 'neg'}`}>
                     {fmtBRL(b.lucro_apos_ads)}
                   </td>
@@ -58,7 +60,7 @@ export default function BalancoDiario() {
               ))}
               {!sort.sorted.length && (
                 <tr>
-                  <td colSpan={13} className="center-msg">
+                  <td colSpan={14} className="center-msg">
                     Sem movimento ainda. Registre vendas e Ads.
                   </td>
                 </tr>

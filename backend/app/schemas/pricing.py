@@ -5,6 +5,7 @@ class PricingIn(BaseModel):
     custo_unitario: float = Field(ge=0)
     qty: int = Field(default=1, gt=0)
     modo: str = "lucro"  # 'lucro' | 'preco'
+    channel_id: int | None = None  # e-commerce (taxas). None = primeiro canal ativo
     taxa_afiliado_pct: float = Field(default=0.0, ge=0)
     outros_custos: float = Field(default=0.0, ge=0)
     lucro_desejado: float | None = None

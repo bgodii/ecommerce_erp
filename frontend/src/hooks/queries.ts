@@ -11,7 +11,6 @@ import type {
   PricingResult,
   Product,
   Sale,
-  Settings,
   StockLot,
   User,
 } from '../lib/types'
@@ -196,22 +195,6 @@ export function useDeleteChannel() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['channels'] })
       qc.invalidateQueries({ queryKey: ['sales'] })
-    },
-  })
-}
-
-// ---- Configurações ----
-export const useSettings = () =>
-  useQuery({ queryKey: ['settings'], queryFn: async () => (await api.get<Settings>('/settings')).data })
-
-export function useUpdateSettings() {
-  const invalidate = useDomainInvalidation()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (body: Partial<Settings>) => (await api.put('/settings', body)).data,
-    onSuccess: () => {
-      invalidate()
-      qc.invalidateQueries({ queryKey: ['settings'] })
     },
   })
 }

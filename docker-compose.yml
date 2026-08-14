@@ -23,7 +23,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://erp:erp@db:5432/erp
       JWT_SECRET: dev-secret-troque-em-producao-min-32-bytes-0000
-      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080"]'
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:8080","http://localhost:8090"]'
     depends_on:
       db:
         condition: service_healthy
@@ -35,7 +35,8 @@ services:
     depends_on:
       - api
     ports:
-      - "8080:80"
+      # 8080 costuma conflitar (ex.: Airflow). Front local em 8090.
+      - "8090:80"
 
 volumes:
   pgdata:

@@ -120,6 +120,7 @@ export interface Dashboard {
 export interface BalancoDia {
   data: string
   qty: number
+  vendas: number
   receita_bruta: number
   taxa_shopee: number
   taxa_fixa: number
@@ -128,6 +129,7 @@ export interface BalancoDia {
   receita_liquida: number
   cmv: number
   ads: number
+  ads_por_venda: number
   lucro_apos_ads: number
   margem_apos_ads: number
   roas: number

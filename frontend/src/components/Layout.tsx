@@ -4,21 +4,21 @@ import { useAuth } from '../lib/auth'
 
 const links = [
   { to: '/', label: 'Dashboard', icon: '📊', end: true },
-  { sep: 'Cadastros' },
-  { to: '/produtos', label: 'Produtos', icon: '👕' },
-  { to: '/entradas', label: 'Entradas', icon: '📦' },
-  { to: '/kits', label: 'Kits', icon: '🧩' },
-  { to: '/ecommerces', label: 'E-commerces', icon: '🏬' },
-  { sep: 'Movimento' },
+  { sep: 'Vendas' },
   { to: '/vendas', label: 'Vendas', icon: '🛒' },
   { to: '/ads', label: 'Ads', icon: '📣' },
   { sep: 'Relatórios' },
   { to: '/balanco-diario', label: 'Balanço Diário', icon: '📅' },
   { to: '/estoque-diario', label: 'Estoque Diário', icon: '📉' },
   { to: '/precificacao', label: 'Precificação', icon: '🏷️' },
+  { to: '/roas', label: 'Calculadora ROAS', icon: '📈' },
+  { sep: 'Cadastros' },
+  { to: '/produtos', label: 'Produtos', icon: '👕' },
+  { to: '/entradas', label: 'Entradas', icon: '📦' },
+  { to: '/kits', label: 'Kits', icon: '🧩' },
+  { to: '/ecommerces', label: 'E-commerces', icon: '🏬' },
   { sep: 'Sistema' },
   { to: '/usuarios', label: 'Usuários', icon: '👥' },
-  { to: '/configuracoes', label: 'Configurações', icon: '⚙️' },
 ]
 
 function initials(name?: string) {

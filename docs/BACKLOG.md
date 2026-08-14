@@ -102,6 +102,10 @@ Itens de melhoria e novas funcionalidades, priorizados. Prioridade: **P0** urgen
 - [ ] **ERP-061 · Relatórios por canal (P2)** — comparar desempenho entre marketplaces. 
   **Aceite:** dashboard/balanço filtráveis por canal; comparativo (qual dá mais lucro/margem/ROAS).
 
+- [x] **ERP-064 · Calculadora de ROAS + Ads/venda (P2)** ✅ — tela "Calculadora ROAS": mostra o
+  **ROAS de equilíbrio** (= 1 ÷ margem) por produto/kit e avalia o ROAS do período (ads + faturamento
+  → veredito bom/ruim + lucro após ads + custo de ads por venda). Balanço Diário ganhou coluna **Ads/venda**.
+
 - [ ] **ERP-062 · Impostos (Simples Nacional) (P3)** — alíquota de imposto no cálculo do lucro. 
   **Aceite:** % de imposto por loja/canal aplicado no lucro líquido e na precificação.
 

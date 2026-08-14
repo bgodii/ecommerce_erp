@@ -3,7 +3,6 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Ads from './pages/Ads'
 import BalancoDiario from './pages/BalancoDiario'
-import Configuracoes from './pages/Configuracoes'
 import Dashboard from './pages/Dashboard'
 import Ecommerces from './pages/Ecommerces'
 import Entradas from './pages/Entradas'
@@ -13,6 +12,7 @@ import Login from './pages/Login'
 import Precificacao from './pages/Precificacao'
 import Produtos from './pages/Produtos'
 import Register from './pages/Register'
+import Roas from './pages/Roas'
 import Usuarios from './pages/Usuarios'
 import Vendas from './pages/Vendas'
 
@@ -33,8 +33,8 @@ export default function App() {
           <Route path="/balanco-diario" element={<BalancoDiario />} />
           <Route path="/estoque-diario" element={<EstoqueDiario />} />
           <Route path="/precificacao" element={<Precificacao />} />
+          <Route path="/roas" element={<Roas />} />
           <Route path="/usuarios" element={<Usuarios />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

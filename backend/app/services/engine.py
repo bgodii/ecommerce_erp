@@ -271,6 +271,7 @@ def balanco_diario(snap: Snapshot, dt_from: date | None = None, dt_to: date | No
             {
                 "data": d,
                 "qty": 0,
+                "vendas": 0,
                 "receita_bruta": 0.0,
                 "taxa_shopee": 0.0,
                 "taxa_fixa": 0.0,
@@ -281,6 +282,7 @@ def balanco_diario(snap: Snapshot, dt_from: date | None = None, dt_to: date | No
             },
         )
         a["qty"] += r["qty"]
+        a["vendas"] += 1
         a["receita_bruta"] += r["receita_bruta"]
         a["taxa_shopee"] += r["taxa_shopee_rs"]
         a["taxa_fixa"] += r["taxa_fixa_rs"]
@@ -301,6 +303,7 @@ def balanco_diario(snap: Snapshot, dt_from: date | None = None, dt_to: date | No
             {
                 "data": d,
                 "qty": 0,
+                "vendas": 0,
                 "receita_bruta": 0.0,
                 "taxa_shopee": 0.0,
                 "taxa_fixa": 0.0,
@@ -317,6 +320,7 @@ def balanco_diario(snap: Snapshot, dt_from: date | None = None, dt_to: date | No
             {
                 **a,
                 "ads": ads,
+                "ads_por_venda": (ads / a["vendas"]) if a["vendas"] else 0.0,
                 "lucro_apos_ads": lucro_apos,
                 "margem_apos_ads": (lucro_apos / receita) if receita else 0.0,
                 "roas": (receita / ads) if ads else 0.0,

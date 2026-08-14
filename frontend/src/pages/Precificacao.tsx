@@ -1,15 +1,17 @@
 import { FormEvent, useState } from 'react'
-import { useSimulatePricing } from '../hooks/queries'
+import { useChannels, useSimulatePricing } from '../hooks/queries'
 import { apiError } from '../lib/api'
 import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
 
 export default function Precificacao() {
   const sim = useSimulatePricing()
+  const { data: channels } = useChannels()
   const [err, setErr] = useState('')
   const [form, setForm] = useState<any>({
     custo_unitario: 0,
     qty: 1,
     modo: 'lucro',
+    channel_id: '',
     taxa_afiliado_pct: 0,
     outros_custos: 0,
     lucro_desejado: 10,
@@ -26,6 +28,7 @@ export default function Precificacao() {
         custo_unitario: Number(form.custo_unitario),
         qty: Number(form.qty),
         modo: form.modo,
+        channel_id: form.channel_id ? Number(form.channel_id) : null,
         taxa_afiliado_pct: Number(form.taxa_afiliado_pct) / 100,
         outros_custos: Number(form.outros_custos),
         lucro_desejado: form.modo === 'lucro' ? Number(form.lucro_desejado) : null,
@@ -48,6 +51,19 @@ export default function Precificacao() {
           {err && <div className="error">{err}</div>}
           <form onSubmit={submit}>
             <div className="form-grid">
+              <div className="field">
+                <label>E-commerce</label>
+                <select value={form.channel_id} onChange={set('channel_id')}>
+                  <option value="">Automático (1º ativo)</option>
+                  {channels
+                    ?.filter((c) => c.ativo)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
               <div className="field">
                 <label>Custo unitário (R$)</label>
                 <input
@@ -111,7 +127,7 @@ export default function Precificacao() {
                 />
               </div>
             </div>
-            <p className="status-line">A taxa Shopee e a taxa fixa vêm das Configurações da loja.</p>
+            <p className="status-line">A taxa do marketplace e a taxa fixa vêm do e-commerce selecionado.</p>
             <button className="btn" disabled={sim.isPending}>
               {sim.isPending ? 'Calculando…' : 'Calcular'}
             </button>
