@@ -13,9 +13,8 @@ from app.models.ad_stat import AdStat
 from app.models.channel import Channel
 from app.models.listing import Listing
 from app.models.order import Order, OrderItem
-from app.models.product import Product
 from app.services.shopee_import import parse_ads_csv, parse_orders_xlsx
-from app.services.sku_resolve import Resolution, SkuResolver, auto_product_identity
+from app.services.sku_resolve import SkuResolver
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -42,11 +41,13 @@ async def import_orders(
     session: SessionDep,
     file: UploadFile = File(...),
     dry_run: bool = False,
-    auto_criar: bool = True,
 ):
-    """Importa o Order.all*.xlsx. Com auto_criar (padrão), produtos que não existem são
-    criados automaticamente a partir da planilha — agregando tamanhos por cor/modelo —
-    e ficam prontos para receber estoque/custo em Entradas."""
+    """Importa o Order.all*.xlsx.
+
+    O import NUNCA cria nem altera produtos — o catálogo é seu. Itens que não casam com
+    nenhum produto/kit ficam como 'pendente' e aparecem na tela Vincular SKUs, onde você
+    decide: vincular a um produto existente ou (se for o caso) criar um novo.
+    """
     org_id = user.organization_id
     content = await file.read()
     try:
@@ -71,28 +72,12 @@ async def import_orders(
     }
 
     novos = atualizados = itens_pendentes = 0
-    produtos_criados: dict[str, str] = {}  # sku -> nome (para o resumo)
     preview = []
     for od in parsed["orders"]:
         items_out = []
         pend_this = 0
         for item in od["items"]:
             res = resolver.resolve(item, org_id, channel.id)
-            if res.status == "pendente" and auto_criar:
-                sku, nome = auto_product_identity(item)
-                prod = resolver.find_product_by_sku(sku)
-                if prod is None and not dry_run:
-                    prod = Product(
-                        organization_id=org_id, sku=sku, nome=nome, dropdown_name=nome
-                    )
-                    session.add(prod)
-                    await session.flush()  # id para o mapping
-                if prod is not None:
-                    resolver.register_product(prod, item, org_id, channel.id)
-                    res = Resolution(product_id=prod.id, kit_id=None, status="auto")
-                elif dry_run:
-                    res = Resolution(status="auto")  # simula a criação no preview
-                produtos_criados.setdefault(sku, nome)
             if res.status == "pendente":
                 pend_this += 1
             items_out.append((item, res))
@@ -162,14 +147,10 @@ async def import_orders(
             "pedidos": len(parsed["orders"]),
             "novos": novos,
             "atualizados": atualizados,
-            "produtos_novos": len(produtos_criados),
             "itens_pendentes_vinculo": itens_pendentes,
             "por_status": dict(status_count),
             "erros": len(parsed["errors"]),
         },
-        "produtos_criados": [
-            {"sku": sku, "nome": nome} for sku, nome in list(produtos_criados.items())[:50]
-        ],
         "errors": parsed["errors"][:50],
         "preview": preview,
     }

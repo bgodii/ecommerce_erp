@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { FormEvent, useState } from 'react'
+import Modal from '../components/Modal'
 import {
   useCreateMapping,
   useDeleteMapping,
@@ -40,16 +41,31 @@ export default function VinculoSkus() {
     }
   }
 
-  async function criarProduto(g: any) {
+  // criação de produto a partir de uma pendência (só quando VOCÊ decidir)
+  const [novo, setNovo] = useState<any>(null)
+  const [novoForm, setNovoForm] = useState({ sku: '', nome: '' })
+
+  function abrirCriar(g: any) {
     setErr('')
-    const nomeBase = g.variation_name || g.sku_var || g.product_name || 'Novo produto'
-    const nome = window.prompt('Nome do novo produto:', nomeBase)
-    if (!nome) return
-    const sku = window.prompt('SKU do novo produto:', (g.sku_var || nome).toLowerCase().replace(/\s+/g, '-'))
-    if (!sku) return
+    setNovo(g)
+    setNovoForm({
+      sku: g.novo_produto_sugerido?.sku ?? '',
+      nome: g.novo_produto_sugerido?.nome ?? '',
+    })
+  }
+
+  async function criarProduto(e: FormEvent) {
+    e.preventDefault()
+    if (!novo) return
+    setErr('')
     try {
-      const p = await saveProduct.mutateAsync({ sku, nome, dropdown_name: nome })
-      await vincular(g.match_key, `product:${p.id}`)
+      const p = await saveProduct.mutateAsync({
+        sku: novoForm.sku,
+        nome: novoForm.nome,
+        dropdown_name: novoForm.nome,
+      })
+      await vincular(novo.match_key, `product:${p.id}`)
+      setNovo(null)
     } catch (e) {
       setErr(apiError(e))
     }
@@ -59,8 +75,9 @@ export default function VinculoSkus() {
     <>
       <div className="page-title">Vínculo de SKUs</div>
       <div className="page-sub">
-        Ligue cada variação do marketplace a um produto ou kit do seu catálogo. Itens sem vínculo
-        não contam no estoque nem na receita.
+        A importação nunca mexe no seu catálogo. Aqui você liga cada variação do marketplace a um
+        produto ou kit existente — ou cria um novo, se for o caso. Itens sem vínculo não contam no
+        estoque nem na receita. Tamanhos (P/M/G) são agrupados: um vínculo cobre todos.
       </div>
 
       {msg && <div className="status-line pos" style={{ marginBottom: 10 }}>{msg}</div>}
@@ -144,7 +161,7 @@ export default function VinculoSkus() {
                       </div>
                     </td>
                     <td>
-                      <button className="btn ghost sm" onClick={() => criarProduto(g)}>
+                      <button className="btn ghost sm" onClick={() => abrirCriar(g)}>
                         + Criar produto
                       </button>
                     </td>
@@ -154,6 +171,46 @@ export default function VinculoSkus() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {novo && (
+        <Modal title="Criar produto e vincular" onClose={() => setNovo(null)}>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Criando um produto novo para <b>{novo.sku_var || novo.variation_name}</b>. Se já existe um
+            produto equivalente no seu catálogo, cancele e use o dropdown "Vincular a".
+          </p>
+          <form onSubmit={criarProduto}>
+            <div className="form-grid">
+              <div className="field">
+                <label>SKU</label>
+                <input
+                  value={novoForm.sku}
+                  onChange={(e) => setNovoForm((f) => ({ ...f, sku: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>Nome</label>
+                <input
+                  value={novoForm.nome}
+                  onChange={(e) => setNovoForm((f) => ({ ...f, nome: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <p className="status-line">
+              Depois de criar, cadastre o estoque e o custo de compra em <b>Entradas</b>.
+            </p>
+            <div className="modal-actions">
+              <button type="button" className="btn secondary" onClick={() => setNovo(null)}>
+                Cancelar
+              </button>
+              <button className="btn" disabled={saveProduct.isPending}>
+                {saveProduct.isPending ? 'Criando…' : 'Criar e vincular'}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {!!vinculos?.length && (

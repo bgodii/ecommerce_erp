@@ -161,11 +161,11 @@ async def test_import_orders_end_to_end(client):
         ]
     )
 
-    # dry-run não grava (auto_criar desligado p/ testar o caminho de pendência)
+    # dry-run não grava
     r = await client.post(
         "/api/imports/orders",
         files={"file": ("Order.all.test.xlsx", content, "application/vnd.ms-excel")},
-        params={"dry_run": "true", "auto_criar": "false"},
+        params={"dry_run": "true"},
         headers=h,
     )
     assert r.status_code == 200, r.text
@@ -177,7 +177,6 @@ async def test_import_orders_end_to_end(client):
     r = await client.post(
         "/api/imports/orders",
         files={"file": ("Order.all.test.xlsx", content, "application/vnd.ms-excel")},
-        params={"auto_criar": "false"},
         headers=h,
     )
     assert r.json()["summary"]["novos"] == 3
@@ -199,7 +198,6 @@ async def test_import_orders_end_to_end(client):
     r = await client.post(
         "/api/imports/orders",
         files={"file": ("Order.all.test.xlsx", content, "application/vnd.ms-excel")},
-        params={"auto_criar": "false"},
         headers=h,
     )
     assert r.json()["summary"]["novos"] == 0
@@ -224,7 +222,6 @@ async def test_mapping_flow(client):
     await client.post(
         "/api/imports/orders",
         files={"file": ("o.xlsx", content, "application/vnd.ms-excel")},
-        params={"auto_criar": "false"},
         headers=h,
     )
 
@@ -259,10 +256,10 @@ async def test_mapping_flow(client):
     assert p["estoque_atual"] == 10
 
 
-async def test_auto_create_products_aggregates_sizes(client):
-    """Com auto_criar (padrão), a planilha preenche os produtos sozinha,
-    agregando tamanhos por cor/modelo: Blusa-Branco-M + Blusa-Branco-G -> 1 produto."""
-    h = await _register(client, "auto@loja.com")
+async def test_import_never_creates_products(client):
+    """O import NÃO mexe no catálogo: itens desconhecidos ficam pendentes de vínculo,
+    agregados por cor/modelo (tamanhos somam na mesma pendência)."""
+    h = await _register(client, "nocreate@loja.com")
     content = build_orders_xlsx(
         [
             order_row("PA1", "Enviado", "Blusa-Branco-M", qty=1, price=25.0),
@@ -278,27 +275,60 @@ async def test_auto_create_products_aggregates_sizes(client):
         headers=h,
     )
     assert r.status_code == 200, r.text
-    s = r.json()["summary"]
-    # 2 produtos: 'Blusa-Branco' (tamanhos agregados) e o kit como produto próprio
-    assert s["produtos_novos"] == 2
-    assert s["itens_pendentes_vinculo"] == 0
+    assert r.json()["summary"]["itens_pendentes_vinculo"] == 3
+    # nenhum produto criado
+    assert (await client.get("/api/products", headers=h)).json() == []
 
-    prods = (await client.get("/api/products", headers=h)).json()
-    skus = {p["sku"] for p in prods}
-    assert "blusa-branco" in skus
-    # sem pendências: tudo vinculado automaticamente
-    assert (await client.get("/api/mappings/pendentes", headers=h)).json() == []
-    # os 3 itens contam na receita (25 + 50 + 45)
+    pend = (await client.get("/api/mappings/pendentes", headers=h)).json()
+    # 'Blusa-Branco-M' e '-G' viram UMA pendência (tamanhos agregados) + a do kit
+    assert len(pend) == 2
+    blusa = next(p for p in pend if (p["sku_var"] or "").startswith("Blusa-Branco"))
+    assert blusa["qtd_unidades"] == 3
+    assert blusa["novo_produto_sugerido"]["sku"] == "blusa-branco"
+
+    # sem vínculo, nada entra na receita
     d = (await client.get("/api/reports/dashboard", headers=h)).json()
-    assert d["receita_bruta"] == pytest.approx(120.0)
-    # reimportar não cria produto de novo
+    assert d["receita_bruta"] == pytest.approx(0.0)
+
+
+async def test_mapping_survives_reimport(client):
+    """Regressão: vínculo feito na tela (sem canal) deve ser reconhecido no reimport —
+    caso contrário os itens voltam a 'pendente' e o trabalho manual se perde."""
+    h = await _register(client, "reimp@loja.com")
+    pid = (
+        await client.post(
+            "/api/products", json={"sku": "camiseta-base", "nome": "Camiseta Base"}, headers=h
+        )
+    ).json()["id"]
+    await client.post(
+        "/api/stock-lots",
+        json={"product_id": pid, "data_entrada": "2026-08-01", "qty_in": 20, "unit_cost": 5},
+        headers=h,
+    )
+    # nome/sku do marketplace que NÃO casa com nada -> vira pendência
+    content = build_orders_xlsx(
+        [order_row("PRE1", "Enviado", "sku-marketplace-y", qty=2, price=30.0,
+                   name="Nome Diferente do Anuncio", var="Cor Z")]
+    )
+    up = {"file": ("o.xlsx", content, "application/vnd.ms-excel")}
+    await client.post("/api/imports/orders", files=up, headers=h)
+
+    g = (await client.get("/api/mappings/pendentes", headers=h)).json()[0]
+    # vincula pela tela (o front NÃO envia channel_id -> vínculo global)
+    await client.post("/api/mappings", json={"match_key": g["match_key"], "product_id": pid}, headers=h)
+    assert (await client.get("/api/mappings/pendentes", headers=h)).json() == []
+
+    # reimportar o mesmo arquivo mantém o vínculo
     r = await client.post(
         "/api/imports/orders",
         files={"file": ("o.xlsx", content, "application/vnd.ms-excel")},
         headers=h,
     )
-    assert r.json()["summary"]["produtos_novos"] == 0
-    assert len((await client.get("/api/products", headers=h)).json()) == len(prods)
+    assert r.json()["summary"]["itens_pendentes_vinculo"] == 0
+    assert (await client.get("/api/mappings/pendentes", headers=h)).json() == []
+    # e o estoque continua consistente (não conta em dobro)
+    p = (await client.get("/api/products", headers=h)).json()[0]
+    assert p["estoque_atual"] == 18
 
 
 async def test_import_ads_idempotent(client):

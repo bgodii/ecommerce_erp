@@ -16,6 +16,13 @@ Itens de melhoria e novas funcionalidades, priorizados. Prioridade: **P0** urgen
 - [x] **ERP-002 · Guardrail de estoque (P1)** ✅ — venda com `qty > disponível` (produto: estoque;
   kit: estoque possível) retorna 409; a UI confirma e reenvia com `permitir_sem_estoque`.
 
+- [x] **ERP-073 · Import não mexe no catálogo (P0)** ✅ — a auto-criação de produtos pela planilha
+  duplicava itens (`Blusa-Branco` vs `Blusa - Branca`) e transformava variação de kit em produto.
+  Agora o import **nunca** cria/altera produtos: itens desconhecidos ficam pendentes na tela
+  Vincular SKUs, onde o usuário decide (vincular a existente ou criar). Chave de vínculo ignora
+  tamanho (P/M/G) → um vínculo cobre todas as variações de tamanho (migration 0004 normaliza as
+  chaves antigas). Regressão coberta: vínculo global sobrevive ao reimport.
+
 - [ ] **ERP-003 · Validar/consertar composição de kits (P2)** — a planilha tem inconsistências
   (ex.: "Kit Blusa Branca + Marrom" composto de polos). 
   **Aceite:** validação no cadastro de kit (componentes coerentes/ativos) + relatório que aponta
@@ -141,6 +148,25 @@ Itens de melhoria e novas funcionalidades, priorizados. Prioridade: **P0** urgen
   loja; cache do insight diário; flag `off` esconde a tela.
   **Pré-requisito:** métricas de reposição (ERP-034) e margem por produto (parte do ERP-036).
   **Aceite (MVP):** botão "Analisar minha loja" → resumo em markdown a partir do briefing real.
+
+- [ ] **ERP-070 · Conector MCP (P1)** — expor os dados da loja para LLMs (Claude Desktop/Code) via
+  Model Context Protocol, para conversar com a operação ("como está meu estoque?", "qual produto
+  dá mais lucro?"). Servidor MCP montado na API (`/mcp`, streamable-http), **token de API por loja**
+  (gerar/revogar em Usuários), tools **read-only** reusando loader+engine: `consultar_estoque`,
+  `consultar_faturamento(período)`, `consultar_ads`, `consultar_pedidos(status)`, `veredito_produtos`.
+  **Aceite:** conectar no Claude e responder perguntas com dados reais da loja; escopo por org.
+
+- [ ] **ERP-071 · Validação de e-mail + recuperação de senha (P1)** — hoje o cadastro não confirma
+  e-mail e só o dono troca senha (sem autoatendimento). 
+  **Aceite:** confirmação de e-mail no cadastro (token com validade); fluxo "esqueci minha senha"
+  por link expirável; envio via SMTP configurável (`SMTP_*` no .env) com fallback claro se não
+  configurado. Casa com ERP-012 (invalidar refresh tokens ao trocar senha).
+
+- [ ] **ERP-072 · APIs oficiais Shopee e TikTok Shop (P2)** — substituir o upload manual de planilhas
+  por sincronização automática. 
+  **Aceite:** OAuth do vendedor por canal; sync incremental de pedidos (com status) e métricas de ADS;
+  reaproveita as tabelas canônicas (`orders`/`ad_stats`) e o mesmo upsert idempotente do import;
+  agendamento periódico + tela de status da conexão. O import por planilha continua como fallback.
 
 - [ ] **ERP-063 · Alertas proativos (P3)** — notificar estoque baixo / margem negativa / ROAS ruim
   (painel e, depois, WhatsApp/e-mail). Casa com o Assistente (ERP-060) e as metas (ERP-042).

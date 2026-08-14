@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.kit import Kit
@@ -65,10 +65,14 @@ class Resolution:
 
 
 def item_match_key(item: dict) -> str:
-    """Chave canônica do item: sku_var se existir, senão nome+variação."""
+    """Chave canônica do item, SEM o tamanho (agrega por cor/modelo).
+
+    'Blusa-Branco-M' e 'Blusa-Branco-G' geram a mesma chave -> um único vínculo
+    cobre todos os tamanhos daquela cor/modelo.
+    """
     if item.get("sku_var"):
-        return norm_key(item["sku_var"])
-    return norm_key(item.get("product_name"), item.get("variation_name"))
+        return norm_key(strip_size(item["sku_var"]))
+    return norm_key(item.get("product_name"), strip_size(item.get("variation_name")))
 
 
 class SkuResolver:
@@ -87,17 +91,22 @@ class SkuResolver:
 
     @classmethod
     async def load(cls, session: AsyncSession, org_id: int, channel_id: int | None) -> "SkuResolver":
-        mappings = {
-            m.match_key: m
-            for m in (
-                await session.execute(
-                    select(SkuMapping).where(
-                        SkuMapping.organization_id == org_id,
+        # Considera vínculos do canal E os globais (channel_id nulo, criados pela tela de
+        # vínculo). O específico do canal tem precedência sobre o global.
+        rows = (
+            await session.execute(
+                select(SkuMapping).where(
+                    SkuMapping.organization_id == org_id,
+                    or_(
                         SkuMapping.channel_id == channel_id,
-                    )
+                        SkuMapping.channel_id.is_(None),
+                    ),
                 )
-            ).scalars()
-        }
+            )
+        ).scalars().all()
+        mappings: dict[str, SkuMapping] = {}
+        for m in sorted(rows, key=lambda x: (x.channel_id is not None)):
+            mappings[m.match_key] = m  # os do canal sobrescrevem os globais
         products = (
             (await session.execute(select(Product).where(Product.organization_id == org_id)))
             .scalars()

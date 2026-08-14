@@ -10,7 +10,7 @@ from app.models.kit import Kit
 from app.models.order import Order, OrderItem
 from app.models.product import Product
 from app.models.sku_mapping import SkuMapping
-from app.services.sku_resolve import item_match_key
+from app.services.sku_resolve import auto_product_identity, item_match_key
 
 router = APIRouter(prefix="/mappings", tags=["vinculo-skus"])
 
@@ -96,6 +96,15 @@ async def list_pending(user: CurrentUser, session: SessionDep):
             sugestoes.append({"tipo": "kit", "id": k.id, "nome": k.nome, "score": round(s, 3)})
         sugestoes.sort(key=lambda x: -x["score"])
         g["sugestoes"] = sugestoes[:5]
+        # sugestão de SKU/nome caso o usuário opte por CRIAR um produto novo
+        sku_sug, nome_sug = auto_product_identity(
+            {
+                "sku_var": g["sku_var"],
+                "product_name": g["product_name"],
+                "variation_name": g["variation_name"],
+            }
+        )
+        g["novo_produto_sugerido"] = {"sku": sku_sug, "nome": nome_sug}
         out.append(g)
 
     out.sort(key=lambda g: -g["qtd_unidades"])
