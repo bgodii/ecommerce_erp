@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { SortTh, useSort } from '../components/Sortable'
+import Th from '../components/Th'
 import { useEstoqueDiario, useEstoqueDiarioRange } from '../hooks/queries'
 import { fmtDate, fmtNum, fmtPct, todayISO } from '../lib/format'
 import type { EstoqueDiaResumo } from '../lib/types'
@@ -84,9 +85,9 @@ export default function EstoqueDiario() {
           <table>
             <thead>
               <tr>
-                <SortTh<EstoqueDiaResumo> label="Data" k="data" sort={sort} />
-                <SortTh<EstoqueDiaResumo> label="Peças que saíram" k="pecas_que_sairam" sort={sort} num />
-                <SortTh<EstoqueDiaResumo> label="Estoque final" k="estoque_final" sort={sort} num />
+                <SortTh<EstoqueDiaResumo> label="Data" k="data" sort={sort} help="Dia analisado" />
+                <SortTh<EstoqueDiaResumo> label="Peças que saíram" k="pecas_que_sairam" sort={sort} num help="Total de unidades que saíram do estoque no dia (kits explodidos em peças)" />
+                <SortTh<EstoqueDiaResumo> label="Estoque final" k="estoque_final" sort={sort} num help="Unidades restantes ao fim do dia (todos os produtos)" />
                 <th></th>
               </tr>
             </thead>
@@ -122,14 +123,14 @@ export default function EstoqueDiario() {
             <table>
               <thead>
                 <tr>
-                  <th>SKU</th>
-                  <th>Produto</th>
-                  <th className="num">Início do dia</th>
-                  <th className="num">Venda unitária</th>
-                  <th className="num">Saída via kits</th>
-                  <th className="num">Total saídas</th>
-                  <th className="num">Fim do dia</th>
-                  <th className="num">% do inicial</th>
+                  <Th label="SKU" help="Código do produto" />
+                  <Th label="Produto" help="Nome do produto" />
+                  <Th label="Início do dia" help="Estoque antes das vendas do dia" num />
+                  <Th label="Venda unitária" help="Unidades vendidas avulsas no dia" num />
+                  <Th label="Saída via kits" help="Unidades que saíram dentro de kits vendidos" num />
+                  <Th label="Total saídas" help="Venda unitária + saída via kits" num />
+                  <Th label="Fim do dia" help="Estoque após as saídas" num />
+                  <Th label="% do inicial" help="Quanto do estoque inicial saiu no dia" num />
                 </tr>
               </thead>
               <tbody>

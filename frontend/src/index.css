@@ -432,6 +432,14 @@ th.sortable {
   cursor: pointer;
   user-select: none;
 }
+/* coluna com descrição no hover */
+.th-help {
+  border-bottom: 1px dotted var(--muted-2);
+  cursor: help;
+}
+th.sortable .th-help {
+  cursor: pointer;
+}
 th.sortable:hover {
   color: var(--text);
 }

@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import Modal from '../components/Modal'
+import Th from '../components/Th'
 import { useChannels, useDeleteChannel, useSaveChannel } from '../hooks/queries'
 import { apiError } from '../lib/api'
 import { fmtBRL, fmtPct } from '../lib/format'
@@ -84,11 +85,11 @@ export default function Ecommerces() {
           <table>
             <thead>
               <tr>
-                <th>Nome</th>
-                <th className="num">Taxa (%)</th>
-                <th className="num">Taxa fixa</th>
-                <th className="num">Afiliado (%)</th>
-                <th>Ativo</th>
+                <Th label="Nome" help="Nome do marketplace (Shopee, TikTok, Mercado Livre…)" />
+                <Th label="Taxa (%)" help="Comissão percentual que o marketplace cobra por venda" num />
+                <Th label="Taxa fixa" help="Valor fixo cobrado por pedido" num />
+                <Th label="Afiliado (%)" help="Comissão padrão de afiliado neste canal" num />
+                <Th label="Ativo" help="Canais inativos não aparecem ao lançar vendas" />
                 <th></th>
               </tr>
             </thead>

@@ -1,14 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import PeriodPicker from '../components/PeriodPicker'
 import { api } from '../lib/api'
-import { fmtBRL, fmtNum, fmtPct, todayISO } from '../lib/format'
-
-const daysAgoISO = (n: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
-}
+import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
+import { PERIOD_PRESETS } from '../lib/periods'
 
 const useOverview = (from: string, to: string) =>
   useQuery({
@@ -85,9 +81,9 @@ function BarChart({ data }: { data: { data: string; receita: number; lucro: numb
 }
 
 export default function Home() {
-  const [from, setFrom] = useState(daysAgoISO(29))
-  const [to, setTo] = useState(todayISO())
-  const { data: vg, isLoading } = useOverview(from, to)
+  const [preset, setPreset] = useState('30d')
+  const [period, setPeriod] = useState(PERIOD_PRESETS[1].calc())
+  const { data: vg, isLoading } = useOverview(period.from, period.to)
 
   if (isLoading || !vg) return <div className="center-msg">Carregando sua visão geral…</div>
 
@@ -104,18 +100,7 @@ export default function Home() {
           <div className="page-title">Visão geral</div>
           <div className="page-sub">Como sua loja está — sem mistério</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <button className="btn secondary sm" onClick={() => { setFrom(daysAgoISO(6)); setTo(todayISO()) }}>7 dias</button>
-          <button className="btn secondary sm" onClick={() => { setFrom(daysAgoISO(29)); setTo(todayISO()) }}>30 dias</button>
-          <div className="field" style={{ margin: 0 }}>
-            <label>De</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div className="field" style={{ margin: 0 }}>
-            <label>Até</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
-        </div>
+        <PeriodPicker value={period} onChange={setPeriod} preset={preset} onPreset={setPreset} />
       </div>
 
       {semDados && (

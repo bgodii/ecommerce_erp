@@ -72,6 +72,8 @@ export interface Sale {
   item_type: 'product' | 'kit'
   channel_id: number | null
   channel: string | null
+  origem: 'manual' | 'importado'
+  status: string | null
   sku: string
   nome: string
   qty: number

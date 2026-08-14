@@ -1,20 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import PeriodPicker from '../components/PeriodPicker'
 import { SortTh, useSort } from '../components/Sortable'
+import Th from '../components/Th'
 import { api } from '../lib/api'
-import { fmtBRL, fmtNum, todayISO } from '../lib/format'
-
-const daysAgoISO = (n: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
-}
+import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
+import { PERIOD_PRESETS } from '../lib/periods'
 
 const VERDICT_HELP: Record<string, string> = {
-  escalar: 'ROAS bem acima do mínimo — vale aumentar o investimento',
-  ok: 'Acima do mínimo — mantém',
-  atencao: 'Abaixo do mínimo — está corroendo a margem',
+  escalar: 'ROAS bem acima do even — vale aumentar o investimento',
+  ok: 'Acima do ROAS even — mantém',
+  atencao: 'Abaixo do ROAS even — está corroendo a margem',
   pausar: 'Muito abaixo / sem conversão — considere pausar',
 }
 
@@ -25,19 +22,22 @@ interface AdRow {
   gmv: number
   itens_vendidos: number
   roas: number
-  roas_equilibrio: number | null
+  roas_even: number | null
+  lucro_estimado: number | null
   veredito: string
 }
 
 export default function AnaliseAds() {
-  const [from, setFrom] = useState(daysAgoISO(29))
-  const [to, setTo] = useState(todayISO())
+  const [preset, setPreset] = useState('30d')
+  const [period, setPeriod] = useState(PERIOD_PRESETS[1].calc())
   const { data: vg, isLoading } = useQuery({
-    queryKey: ['visao-geral', from, to],
-    queryFn: async () => (await api.get('/reports/visao-geral', { params: { from, to } })).data,
+    queryKey: ['visao-geral', period.from, period.to],
+    queryFn: async () =>
+      (await api.get('/reports/visao-geral', { params: { from: period.from, to: period.to } })).data,
   })
   const rows: AdRow[] = vg?.ads_produtos ?? []
   const sort = useSort<AdRow>(rows, 'spend', 'desc')
+  const roasEven = vg?.ads?.roas_even ?? null
 
   return (
     <>
@@ -45,42 +45,59 @@ export default function AnaliseAds() {
         <div>
           <div className="page-title">Análise de ADS</div>
           <div className="page-sub">
-            ROAS real por anúncio vs o mínimo pra lucrar (1 ÷ margem). Dados dos relatórios importados.
+            ROAS real de cada anúncio comparado ao <b>ROAS even</b> — o mínimo pra não ter prejuízo.
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <button className="btn secondary sm" onClick={() => { setFrom(daysAgoISO(6)); setTo(todayISO()) }}>7 dias</button>
-          <button className="btn secondary sm" onClick={() => { setFrom(daysAgoISO(29)); setTo(todayISO()) }}>30 dias</button>
-          <div className="field" style={{ margin: 0 }}>
-            <label>De</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div className="field" style={{ margin: 0 }}>
-            <label>Até</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
-        </div>
+        <PeriodPicker value={period} onChange={setPeriod} preset={preset} onPreset={setPreset} />
       </div>
 
       {vg && (
-        <div className="grid kpis">
-          <div className="card kpi">
-            <div className="label">Investimento no período</div>
-            <div className="value">{fmtBRL(vg.ads.spend)}</div>
+        <>
+          <div className="grid kpis">
+            <div className="card kpi">
+              <div className="label">ROAS even (mínimo)</div>
+              <div className="value">{roasEven ? `${fmtNum(roasEven, 2)}×` : '—'}</div>
+              <div className="status-line" style={{ margin: 0 }}>
+                = 1 ÷ margem ({fmtPct(vg.ads.margem_base)})
+              </div>
+            </div>
+            <div className="card kpi">
+              <div className="label">ROAS médio</div>
+              <div className={`value ${roasEven && vg.ads.roas >= roasEven ? 'pos' : 'neg'}`}>
+                {vg.ads.roas ? `${fmtNum(vg.ads.roas, 2)}×` : '—'}
+              </div>
+            </div>
+            <div className="card kpi">
+              <div className="label">Investimento</div>
+              <div className="value">{fmtBRL(vg.ads.spend)}</div>
+            </div>
+            <div className="card kpi">
+              <div className="label">GMV dos anúncios</div>
+              <div className="value">{fmtBRL(vg.ads.gmv_anunciado)}</div>
+            </div>
+            <div className="card kpi">
+              <div className="label">% do faturamento</div>
+              <div className="value">{fmtNum(vg.ads.pct_faturamento * 100, 1)}%</div>
+            </div>
           </div>
-          <div className="card kpi">
-            <div className="label">GMV dos anúncios</div>
-            <div className="value">{fmtBRL(vg.ads.gmv_anunciado)}</div>
-          </div>
-          <div className="card kpi">
-            <div className="label">ROAS médio</div>
-            <div className="value">{vg.ads.roas ? `${fmtNum(vg.ads.roas, 2)}×` : '—'}</div>
-          </div>
-          <div className="card kpi">
-            <div className="label">% do faturamento</div>
-            <div className="value">{fmtNum(vg.ads.pct_faturamento * 100, 1)}%</div>
-          </div>
-        </div>
+
+          {roasEven && (
+            <div className={`insight ${vg.ads.roas >= roasEven ? 'sucesso' : 'alerta'}`} style={{ marginBottom: 18 }}>
+              <span className="ic">{vg.ads.roas >= roasEven ? '✅' : '⚠️'}</span>
+              <div>
+                <b>
+                  {vg.ads.roas >= roasEven
+                    ? `Seus anúncios estão no lucro (ROAS ${fmtNum(vg.ads.roas, 2)}× vs even ${fmtNum(roasEven, 2)}×)`
+                    : `Seus anúncios estão no prejuízo (ROAS ${fmtNum(vg.ads.roas, 2)}× abaixo do even ${fmtNum(roasEven, 2)}×)`}
+                </b>
+                <p>
+                  Com margem de {fmtPct(vg.ads.margem_base)}, cada R$ 1 investido precisa gerar pelo
+                  menos R$ {fmtNum(roasEven, 2)} de venda para empatar.
+                </p>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {isLoading ? (
@@ -95,37 +112,47 @@ export default function AnaliseAds() {
           <table>
             <thead>
               <tr>
-                <th>Anúncio / Produto</th>
-                <SortTh<AdRow> label="Investido" k="spend" sort={sort} num />
-                <SortTh<AdRow> label="GMV" k="gmv" sort={sort} num />
-                <SortTh<AdRow> label="Itens" k="itens_vendidos" sort={sort} num />
-                <SortTh<AdRow> label="ROAS" k="roas" sort={sort} num />
-                <th className="num">Mínimo p/ lucrar</th>
-                <th>Veredito</th>
+                <Th label="Anúncio / Produto" help="Nome do anúncio no marketplace" />
+                <SortTh<AdRow> label="Investido" k="spend" sort={sort} num help="Quanto você gastou neste anúncio no período" />
+                <SortTh<AdRow> label="GMV" k="gmv" sort={sort} num help="Valor vendido atribuído a este anúncio" />
+                <SortTh<AdRow> label="Itens" k="itens_vendidos" sort={sort} num help="Unidades vendidas pelo anúncio" />
+                <SortTh<AdRow> label="ROAS" k="roas" sort={sort} num help="Retorno real: GMV ÷ investido. Quanto vendeu por real gasto." />
+                <SortTh<AdRow> label="ROAS even" k="roas_even" sort={sort} num help="Ponto de equilíbrio (1 ÷ margem): abaixo disso o anúncio dá prejuízo" />
+                <SortTh<AdRow> label="Lucro estim." k="lucro_estimado" sort={sort} num help="GMV × margem − investido. Estimativa do que sobrou depois do anúncio." />
+                <Th label="Veredito" help="escalar = muito acima do even · ok = acima · atenção = abaixo · pausar = bem abaixo ou sem vendas" />
               </tr>
             </thead>
             <tbody>
-              {sort.sorted.map((p) => (
-                <tr key={p.listing + p.nome}>
-                  <td style={{ whiteSpace: 'normal', maxWidth: 420 }}>{p.nome}</td>
-                  <td className="num">{fmtBRL(p.spend)}</td>
-                  <td className="num">{fmtBRL(p.gmv)}</td>
-                  <td className="num">{fmtNum(p.itens_vendidos)}</td>
-                  <td className="num" style={{ fontWeight: 700 }}>{fmtNum(p.roas, 2)}×</td>
-                  <td className="num">{p.roas_equilibrio ? `${fmtNum(p.roas_equilibrio, 2)}×` : '—'}</td>
-                  <td>
-                    <span className={`verdict ${p.veredito}`} title={VERDICT_HELP[p.veredito]}>
-                      {p.veredito}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {sort.sorted.map((p) => {
+                const acima = p.roas_even != null && p.roas >= p.roas_even
+                return (
+                  <tr key={p.listing + p.nome}>
+                    <td style={{ whiteSpace: 'normal', maxWidth: 400 }}>{p.nome}</td>
+                    <td className="num">{fmtBRL(p.spend)}</td>
+                    <td className="num">{fmtBRL(p.gmv)}</td>
+                    <td className="num">{fmtNum(p.itens_vendidos)}</td>
+                    <td className={`num ${acima ? 'pos' : 'neg'}`} style={{ fontWeight: 700 }}>
+                      {fmtNum(p.roas, 2)}×
+                    </td>
+                    <td className="num muted">{p.roas_even ? `${fmtNum(p.roas_even, 2)}×` : '—'}</td>
+                    <td className={`num ${(p.lucro_estimado ?? 0) >= 0 ? 'pos' : 'neg'}`}>
+                      {p.lucro_estimado != null ? fmtBRL(p.lucro_estimado) : '—'}
+                    </td>
+                    <td>
+                      <span className={`verdict ${p.veredito}`} title={VERDICT_HELP[p.veredito]}>
+                        {p.veredito}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       )}
       <p className="status-line" style={{ marginTop: 10 }}>
-        O "mínimo p/ lucrar" usa a margem média da loja no período. Vereditos: escalar · ok · atenção · pausar.
+        <b>ROAS even</b> = 1 ÷ margem líquida da loja no período. Acima dele o anúncio dá lucro;
+        abaixo, consome mais do que a margem gera. "Lucro estim." = GMV × margem − investimento.
       </p>
     </>
   )

@@ -63,6 +63,9 @@ class SSale:
     pedido: str | None = None
     channel_id: int | None = None
     channel_name: str | None = None
+    # 'manual' (lançada na tela) ou 'importado' (veio de um pedido do marketplace)
+    origem: str = "manual"
+    status: str | None = None
 
 
 @dataclass

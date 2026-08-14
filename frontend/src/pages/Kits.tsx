@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import Modal from '../components/Modal'
+import Th from '../components/Th'
 import { useDeleteKit, useKits, useProducts, useSaveKit } from '../hooks/queries'
 import { apiError } from '../lib/api'
 import { fmtBRL, fmtNum } from '../lib/format'
@@ -113,13 +114,13 @@ export default function Kits() {
           <table>
             <thead>
               <tr>
-                <th>SKU</th>
-                <th>Nome</th>
-                <th>Composição</th>
-                <th className="num">Itens</th>
-                <th className="num">Custo atual</th>
-                <th className="num">Estoque possível</th>
-                <th>Ativo</th>
+                <Th label="SKU" help="Código único do kit" />
+                <Th label="Nome" help="Nome do kit exibido nas vendas" />
+                <Th label="Composição" help="Quais produtos e quantidades formam o kit" />
+                <Th label="Itens" help="Total de peças dentro do kit" num />
+                <Th label="Custo atual" help="Soma do custo dos componentes (ao custo médio atual)" num />
+                <Th label="Estoque possível" help="Quantos kits dá para montar com o estoque atual dos componentes" num />
+                <Th label="Ativo" help="Kits inativos não aparecem para venda" />
                 <th></th>
               </tr>
             </thead>

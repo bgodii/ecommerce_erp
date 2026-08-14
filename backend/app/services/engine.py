@@ -187,6 +187,8 @@ def sale_rows(snap: Snapshot) -> list[dict]:
                 "item_type": s.item_type,
                 "channel_id": s.channel_id,
                 "channel": s.channel_name,
+                "origem": s.origem,
+                "status": s.status,
                 "sku": sku,
                 "nome": nome,
                 "qty": s.qty,

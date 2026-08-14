@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react'
 import Modal from '../components/Modal'
 import { SortTh, useSort } from '../components/Sortable'
+import Th from '../components/Th'
 import { useDeleteLot, useLots, useProducts, useSaveLot } from '../hooks/queries'
 import { apiError } from '../lib/api'
 import { fmtBRL, fmtDate, fmtNum, todayISO } from '../lib/format'
@@ -91,15 +92,15 @@ export default function Entradas() {
           <table>
             <thead>
               <tr>
-                <th>Lote</th>
-                <SortTh<StockLot> label="Data" k="data_entrada" sort={sort} />
-                <th>Produto</th>
-                <th className="num">Qtd</th>
-                <th className="num">Custo unit.</th>
-                <th className="num">Custo total</th>
-                <th className="num">Saldo</th>
-                <th className="num">Valor saldo</th>
-                <th>Status</th>
+                <Th label="Lote" help="Identificação da compra (cada compra é um lote)" />
+                <SortTh<StockLot> label="Data" k="data_entrada" sort={sort} help="Data da compra — define a ordem do FIFO" />
+                <Th label="Produto" help="Produto que entrou no estoque" />
+                <Th label="Qtd" help="Unidades compradas neste lote" num />
+                <Th label="Custo unit." help="Quanto você pagou por unidade" num />
+                <Th label="Custo total" help="Qtd × custo unitário" num />
+                <Th label="Saldo" help="Unidades deste lote que ainda não foram vendidas" num />
+                <Th label="Valor saldo" help="Quanto ainda resta em valor neste lote" num />
+                <Th label="Status" help="Disponível = intacto · Parcial = em consumo · Esgotado = todo vendido" />
                 <th></th>
               </tr>
             </thead>

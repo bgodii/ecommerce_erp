@@ -123,6 +123,9 @@ async def build_overview(
         "gmv_anunciado": ads_gmv,
         "pct_faturamento": (ads_spend / cur["receita"]) if cur["receita"] else 0.0,
         "roas": (ads_gmv / ads_spend) if ads_spend and ads_gmv else 0.0,
+        # ROAS even (break-even): abaixo disso o anúncio consome mais que a margem gera
+        "roas_even": (1.0 / cur["margem"]) if cur["margem"] > 0 else None,
+        "margem_base": cur["margem"],
         "fonte": ads_fonte,
     }
 
@@ -198,7 +201,9 @@ async def build_overview(
                 "gmv": s.gmv,
                 "itens_vendidos": s.items_sold,
                 "roas": s.roas,
-                "roas_equilibrio": roas_eq,
+                "roas_even": roas_eq,
+                "roas_equilibrio": roas_eq,  # alias (compat)
+                "lucro_estimado": s.gmv * margem_ref - s.spend if margem_ref > 0 else None,
                 "fonte_margem": fonte_margem,
                 "veredito": veredito,
             }

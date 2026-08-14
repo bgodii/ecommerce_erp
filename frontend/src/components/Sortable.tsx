@@ -52,16 +52,22 @@ export function SortTh<T>({
   k,
   sort,
   num,
+  help,
 }: {
   label: string
   k: keyof T
   sort: SortState<T>
   num?: boolean
+  help?: string
 }) {
   const active = sort.sortKey === k
   return (
-    <th className={`sortable${num ? ' num' : ''}`} onClick={() => sort.toggle(k)}>
-      {label}
+    <th
+      className={`sortable${num ? ' num' : ''}`}
+      onClick={() => sort.toggle(k)}
+      title={help ? `${help} · clique para ordenar` : 'clique para ordenar'}
+    >
+      {help ? <span className="th-help">{label}</span> : label}
       <span className={`sort-ind${active ? ' active' : ''}`}>
         {active ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
       </span>

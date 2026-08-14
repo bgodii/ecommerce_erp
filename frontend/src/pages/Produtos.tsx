@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import Modal from '../components/Modal'
+import Th from '../components/Th'
 import { useDeleteProduct, useProducts, useSaveProduct } from '../hooks/queries'
 import { apiError } from '../lib/api'
 import { fmtBRL, fmtNum } from '../lib/format'
@@ -76,16 +77,16 @@ export default function Produtos() {
           <table>
             <thead>
               <tr>
-                <th>SKU</th>
-                <th>Nome (dropdown)</th>
-                <th>Variação</th>
-                <th>Ativo</th>
-                <th className="num">Entradas</th>
-                <th className="num">Vend. diretas</th>
-                <th className="num">Em kits</th>
-                <th className="num">Estoque</th>
-                <th className="num">Valor estoque</th>
-                <th className="num">Custo médio</th>
+                <Th label="SKU" help="Código único do produto no seu catálogo" />
+                <Th label="Nome (dropdown)" help="Nome exibido ao lançar vendas" />
+                <Th label="Variação" help="Cor, tamanho ou modelo" />
+                <Th label="Ativo" help="Produtos inativos não aparecem para venda" />
+                <Th label="Entradas" help="Total de unidades que você comprou (soma dos lotes)" num />
+                <Th label="Vend. diretas" help="Unidades vendidas avulsas (fora de kits)" num />
+                <Th label="Em kits" help="Unidades consumidas dentro de kits vendidos" num />
+                <Th label="Estoque" help="Entradas − vendas diretas − consumo em kits" num />
+                <Th label="Valor estoque" help="Quanto o estoque atual vale ao custo de compra" num />
+                <Th label="Custo médio" help="Custo médio das unidades ainda em estoque" num />
                 <th></th>
               </tr>
             </thead>

@@ -1,7 +1,9 @@
 import { AxiosError } from 'axios'
 import { FormEvent, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Modal from '../components/Modal'
 import { SortTh, useSort } from '../components/Sortable'
+import Th from '../components/Th'
 import {
   useChannels,
   useDeleteSale,
@@ -177,13 +179,17 @@ export default function Vendas() {
   }
 
   const hasItems = !!products?.length || !!kits?.length
+  const semCusto = (sales ?? []).filter((s) => s.cmv <= 0).length
 
   return (
     <>
       <div className="toolbar">
         <div>
           <div className="page-title">Vendas</div>
-          <div className="page-sub">Taxas, CMV via FIFO e lucro são calculados automaticamente</div>
+          <div className="page-sub">
+            Pedidos importados usam as <b>taxas reais</b> do marketplace; CMV via FIFO e lucro são
+            calculados automaticamente.
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn secondary" onClick={exportCSV} disabled={!sales?.length}>
@@ -198,6 +204,20 @@ export default function Vendas() {
         </div>
       </div>
 
+      {semCusto > 0 && (
+        <div className="insight alerta" style={{ marginBottom: 14 }}>
+          <span className="ic">⚠️</span>
+          <div>
+            <b>{semCusto} venda(s) sem custo de compra cadastrado</b>
+            <p>
+              O lucro e a margem dessas linhas (marcadas com <b>*</b>) estão superestimados porque o
+              CMV está zerado. Registre o estoque e o preço pago em{' '}
+              <Link className="link" to="/entradas">Entradas</Link>.
+            </p>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="center-msg">Carregando…</div>
       ) : (
@@ -205,18 +225,19 @@ export default function Vendas() {
           <table>
             <thead>
               <tr>
-                <SortTh<Sale> label="Data" k="data_venda" sort={sort} />
-                <th>Pedido</th>
-                <th>Item</th>
-                <th>Canal</th>
-                <th className="num">Qtd</th>
-                <th className="num">Preço</th>
-                <th className="num">Receita</th>
-                <th className="num">Taxas</th>
-                <th className="num">Líquida</th>
-                <th className="num">CMV</th>
-                <th className="num">Lucro</th>
-                <th className="num">Margem</th>
+                <SortTh<Sale> label="Data" k="data_venda" sort={sort} help="Data em que a venda foi feita" />
+                <Th label="Pedido" help="Número do pedido no marketplace" />
+                <Th label="Item" help="Produto ou kit vendido" />
+                <Th label="Canal" help="E-commerce onde a venda aconteceu (Shopee, TikTok…)" />
+                <Th label="Origem" help="Importado = veio da planilha de pedidos (com status real). Manual = lançado por você." />
+                <Th label="Qtd" help="Unidades vendidas nesta linha" num />
+                <Th label="Preço" help="Preço unitário cobrado do cliente" num />
+                <Th label="Receita" help="Quanto o cliente pagou pelos produtos (qtd × preço)" num />
+                <Th label="Taxas" help="Tudo que o marketplace cobrou: comissão + serviço + transação + afiliado" num />
+                <Th label="Após taxas" help="Receita menos as taxas do marketplace — ainda NÃO desconta o custo do produto" num />
+                <Th label="Custo (CMV)" help="Quanto você pagou pelo produto (custo da mercadoria vendida, por FIFO). Vem das Entradas de estoque." num />
+                <Th label="Lucro real" help="Após taxas − custo do produto. É o que realmente sobra da venda (antes de anúncios)." num />
+                <Th label="Margem real" help="Lucro real ÷ receita. Quanto de cada R$ 100 vendidos vira lucro." num />
                 <th></th>
               </tr>
             </thead>
@@ -229,26 +250,56 @@ export default function Vendas() {
                     <td>{s.pedido}</td>
                     <td>{s.nome}</td>
                     <td>{s.channel ?? '—'}</td>
+                    <td>
+                      {s.origem === 'importado' ? (
+                        <span className="pill" title={`Pedido importado · status: ${s.status ?? '—'}`}>
+                          📥 {s.status ?? 'importado'}
+                        </span>
+                      ) : (
+                        <span className="pill">✍️ manual</span>
+                      )}
+                    </td>
                     <td className="num">{fmtNum(s.qty)}</td>
                     <td className="num">{fmtBRL(s.preco_unitario)}</td>
                     <td className="num">{fmtBRL(s.receita_bruta)}</td>
                     <td className="num">{fmtBRL(taxas)}</td>
                     <td className="num">{fmtBRL(s.receita_liquida)}</td>
-                    <td className="num">{fmtBRL(s.cmv)}</td>
-                    <td className={`num ${s.lucro >= 0 ? 'pos' : 'neg'}`}>{fmtBRL(s.lucro)}</td>
-                    <td className={`num ${s.lucro >= 0 ? 'pos' : 'neg'}`}>{fmtPct(s.margem)}</td>
+                    <td className="num">
+                      {s.cmv > 0 ? (
+                        fmtBRL(s.cmv)
+                      ) : (
+                        <span
+                          className="verdict atencao"
+                          title="Custo de compra não cadastrado — registre uma entrada de estoque para este produto"
+                        >
+                          sem custo
+                        </span>
+                      )}
+                    </td>
+                    <td className={`num ${s.lucro >= 0 ? 'pos' : 'neg'}`} title={s.cmv > 0 ? '' : 'Superestimado: falta o custo de compra'}>
+                      {fmtBRL(s.lucro)}{s.cmv > 0 ? '' : ' *'}
+                    </td>
+                    <td className={`num ${s.lucro >= 0 ? 'pos' : 'neg'}`}>
+                      {fmtPct(s.margem)}{s.cmv > 0 ? '' : ' *'}
+                    </td>
                     <td>
-                      <button className="btn ghost sm neg" onClick={() => remove(s.id)}>
-                        Excluir
-                      </button>
+                      {s.origem === 'importado' ? (
+                        <span className="muted" style={{ fontSize: 12 }} title="Vem do pedido importado — altere no marketplace e reimporte">
+                          —
+                        </span>
+                      ) : (
+                        <button className="btn ghost sm neg" onClick={() => remove(s.id)}>
+                          Excluir
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
               })}
               {!sort.sorted.length && (
                 <tr>
-                  <td colSpan={13} className="center-msg">
-                    Nenhuma venda registrada ainda.
+                  <td colSpan={14} className="center-msg">
+                    Nenhuma venda ainda. Importe os pedidos do marketplace ou lance manualmente.
                   </td>
                 </tr>
               )}

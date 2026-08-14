@@ -1,4 +1,5 @@
 import { SortTh, useSort } from '../components/Sortable'
+import Th from '../components/Th'
 import { useBalanco } from '../hooks/queries'
 import { fmtBRL, fmtDate, fmtNum, fmtPct } from '../lib/format'
 import type { BalancoDia } from '../lib/types'
@@ -19,20 +20,20 @@ export default function BalancoDiario() {
           <table>
             <thead>
               <tr>
-                <SortTh<BalancoDia> label="Data" k="data" sort={sort} />
-                <th className="num">Qtd</th>
-                <th className="num">Receita</th>
-                <th className="num">Comissão</th>
-                <th className="num">Taxa fixa</th>
-                <th className="num">Afiliado/Extra</th>
-                <th className="num">Outras</th>
-                <th className="num">Líquida</th>
-                <th className="num">CMV</th>
-                <th className="num">Ads</th>
-                <th className="num">Ads/venda</th>
-                <th className="num">Lucro após Ads</th>
-                <th className="num">Margem</th>
-                <th className="num">ROAS</th>
+                <SortTh<BalancoDia> label="Data" k="data" sort={sort} help="Dia da venda" />
+                <Th label="Qtd" help="Unidades vendidas no dia" num />
+                <Th label="Receita" help="Total pago pelos clientes no dia" num />
+                <Th label="Comissão" help="Comissão percentual cobrada pelo marketplace" num />
+                <Th label="Taxa fixa" help="Taxa fixa por pedido" num />
+                <Th label="Afiliado/Extra" help="Comissão de afiliado ou taxa extra da campanha" num />
+                <Th label="Outras" help="Outras deduções (cupons, ajustes, taxa de transação)" num />
+                <Th label="Líquida" help="Receita menos todas as taxas — antes do custo do produto" num />
+                <Th label="CMV" help="Custo das mercadorias vendidas no dia (FIFO)" num />
+                <Th label="Ads" help="Investimento em anúncios no dia" num />
+                <Th label="Ads/venda" help="Quanto de anúncio custou cada venda (ads ÷ nº de vendas)" num />
+                <Th label="Lucro após Ads" help="Líquida − CMV − Ads. O que realmente sobrou no dia." num />
+                <Th label="Margem" help="Lucro após Ads ÷ receita" num />
+                <Th label="ROAS" help="Retorno dos anúncios: receita ÷ investimento em ads" num />
               </tr>
             </thead>
             <tbody>

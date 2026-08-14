@@ -88,6 +88,8 @@ async def load_snapshot(session: AsyncSession, org_id: int) -> Snapshot:
                     pedido=o.order_sn,
                     channel_id=o.channel_id,
                     channel_name=channel_names.get(o.channel_id),
+                    origem="importado",
+                    status=o.status,
                 )
             )
 
