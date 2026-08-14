@@ -31,10 +31,10 @@ export default function Login() {
     <div className="auth">
       <div className="auth-card">
         <div className="logo">
-          ERP <span>Shopee</span>
+          eLucro<span>Certo</span>
         </div>
         <p className="muted" style={{ marginBottom: 20 }}>
-          Entre para gerenciar sua loja
+          Entre para ver como sua loja está indo
         </p>
         {err && <div className="error">{err}</div>}
         <form onSubmit={submit}>

@@ -3,11 +3,14 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 
 const links = [
-  { to: '/', label: 'Dashboard', icon: '📊', end: true },
+  { to: '/', label: 'Visão Geral', icon: '📊', end: true },
   { sep: 'Vendas' },
+  { to: '/importar', label: 'Importar dados', icon: '📥' },
+  { to: '/vinculo-skus', label: 'Vincular SKUs', icon: '🔗' },
   { to: '/vendas', label: 'Vendas', icon: '🛒' },
-  { to: '/ads', label: 'Ads', icon: '📣' },
+  { to: '/ads', label: 'Ads (manual)', icon: '📣' },
   { sep: 'Relatórios' },
+  { to: '/analise-ads', label: 'Análise de ADS', icon: '📣' },
   { to: '/balanco-diario', label: 'Balanço Diário', icon: '📅' },
   { to: '/estoque-diario', label: 'Estoque Diário', icon: '📉' },
   { to: '/precificacao', label: 'Precificação', icon: '🏷️' },
@@ -37,7 +40,7 @@ export default function Layout() {
       <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
         <div className="brand">
           <span className="brand-mark">🛍️</span>
-          <span>ERP Shopee</span>
+          <span>eLucroCerto</span>
         </div>
         <nav className="nav">
           {links.map((l, i) =>

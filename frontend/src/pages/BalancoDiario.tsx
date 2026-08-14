@@ -22,7 +22,7 @@ export default function BalancoDiario() {
                 <SortTh<BalancoDia> label="Data" k="data" sort={sort} />
                 <th className="num">Qtd</th>
                 <th className="num">Receita</th>
-                <th className="num">Taxa Shopee</th>
+                <th className="num">Comissão</th>
                 <th className="num">Taxa fixa</th>
                 <th className="num">Afiliado/Extra</th>
                 <th className="num">Outras</th>

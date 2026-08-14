@@ -199,6 +199,81 @@ export function useDeleteChannel() {
   })
 }
 
+// ---- Imports (exports do marketplace) ----
+export const useImportsStatus = () =>
+  useQuery({ queryKey: ['imports'], queryFn: async () => (await api.get('/imports')).data })
+
+export function useImportOrders() {
+  const invalidate = useDomainInvalidation()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ file, dryRun }: { file: File; dryRun: boolean }) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return (await api.post('/imports/orders', fd, { params: { dry_run: dryRun } })).data
+    },
+    onSuccess: (_d, vars) => {
+      if (!vars.dryRun) {
+        invalidate()
+        qc.invalidateQueries({ queryKey: ['imports'] })
+        qc.invalidateQueries({ queryKey: ['mappings-pendentes'] })
+      }
+    },
+  })
+}
+
+export function useImportAds() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ file, dryRun }: { file: File; dryRun: boolean }) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return (await api.post('/imports/ads', fd, { params: { dry_run: dryRun } })).data
+    },
+    onSuccess: (_d, vars) => {
+      if (!vars.dryRun) qc.invalidateQueries({ queryKey: ['imports'] })
+    },
+  })
+}
+
+// ---- Vínculo de SKUs ----
+export const usePendingMappings = () =>
+  useQuery({
+    queryKey: ['mappings-pendentes'],
+    queryFn: async () => (await api.get('/mappings/pendentes')).data,
+  })
+
+export const useMappings = () =>
+  useQuery({ queryKey: ['mappings'], queryFn: async () => (await api.get('/mappings')).data })
+
+export function useCreateMapping() {
+  const invalidate = useDomainInvalidation()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: { match_key: string; product_id?: number | null; kit_id?: number | null }) =>
+      (await api.post('/mappings', body)).data,
+    onSuccess: () => {
+      invalidate()
+      qc.invalidateQueries({ queryKey: ['mappings-pendentes'] })
+      qc.invalidateQueries({ queryKey: ['mappings'] })
+      qc.invalidateQueries({ queryKey: ['imports'] })
+    },
+  })
+}
+
+export function useDeleteMapping() {
+  const invalidate = useDomainInvalidation()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => api.delete(`/mappings/${id}`),
+    onSuccess: () => {
+      invalidate()
+      qc.invalidateQueries({ queryKey: ['mappings-pendentes'] })
+      qc.invalidateQueries({ queryKey: ['mappings'] })
+    },
+  })
+}
+
 // ---- Precificação ----
 export function useSimulatePricing() {
   return useMutation({

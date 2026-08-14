@@ -38,7 +38,7 @@ export default function Register() {
     <div className="auth">
       <div className="auth-card">
         <div className="logo">
-          ERP <span>Shopee</span>
+          eLucro<span>Certo</span>
         </div>
         <p className="muted" style={{ marginBottom: 20 }}>
           Crie sua loja em segundos

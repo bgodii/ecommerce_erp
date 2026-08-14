@@ -33,3 +33,6 @@ Thumbs.db
 *.dump
 # Planilhas reais (o seed lê de um caminho que VOCÊ fornece; não commitar dados reais)
 backend/app/data/*.xlsx
+# Exports reais da Shopee (pedidos com PII, ads) — o app importa via upload
+data/
+*Zone.Identifier

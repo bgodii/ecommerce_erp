@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "ERP Shopee"
+    app_name: str = "eLucroCerto"
     environment: str = "development"
 
     # postgresql+asyncpg://user:pass@host:5432/db  (driver asyncpg)

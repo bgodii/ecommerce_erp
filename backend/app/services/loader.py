@@ -7,9 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.ad_spend import AdSpend
 from app.models.channel import Channel
 from app.models.kit import Kit
+from app.models.order import Order
 from app.models.product import Product
 from app.models.sale import Sale
 from app.models.stock_lot import StockLot
+
+# Pedidos nestes status NÃO contam como venda (sem receita, sem consumo de estoque).
+ORDER_EXCLUDED_STATUSES = ("cancelado", "nao_pago", "devolucao")
+
+# Offset para os ids sintéticos das vendas vindas de pedidos importados,
+# evitando colisão com ids de vendas manuais.
+IMPORTED_SALE_ID_OFFSET = 1_000_000_000
 from app.services.snapshot import (
     SAd,
     SKit,
@@ -43,6 +51,45 @@ async def load_snapshot(session: AsyncSession, org_id: int) -> Snapshot:
             await session.execute(select(Channel).where(Channel.organization_id == org_id))
         ).scalars()
     }
+    orders = (
+        await session.execute(
+            select(Order).where(
+                Order.organization_id == org_id,
+                Order.status.notin_(ORDER_EXCLUDED_STATUSES),
+            )
+        )
+    ).scalars().all()
+
+    # Pedidos importados viram vendas do snapshot com as TAXAS REAIS do pedido,
+    # rateadas por item na proporção do subtotal. O truque: derivamos o percentual
+    # (taxa/receita) para o engine reproduzir exatamente o valor absoluto.
+    imported_sales: list[SSale] = []
+    for o in orders:
+        total_sub = sum(i.subtotal for i in o.items) or 1.0
+        fees_pct_base = o.taxa_comissao + o.taxa_servico
+        for i in o.items:
+            if i.product_id is None and i.kit_id is None:
+                continue  # pendente de vínculo — não conta até ser mapeado
+            frac = i.subtotal / total_sub
+            receita = i.subtotal
+            imported_sales.append(
+                SSale(
+                    id=IMPORTED_SALE_ID_OFFSET + i.id,
+                    data_venda=(o.created_at_channel.date() if o.created_at_channel else o.created_at.date()),
+                    item_type="product" if i.product_id else "kit",
+                    qty=i.qty,
+                    preco_unitario=i.unit_price,
+                    taxa_shopee_pct=(fees_pct_base * frac / receita) if receita else 0.0,
+                    taxa_fixa=0.0,
+                    taxa_afiliado_pct=0.0,
+                    outras_taxas=o.taxa_transacao * frac,
+                    product_id=i.product_id,
+                    kit_id=i.kit_id,
+                    pedido=o.order_sn,
+                    channel_id=o.channel_id,
+                    channel_name=channel_names.get(o.channel_id),
+                )
+            )
 
     return Snapshot(
         products=[
@@ -98,6 +145,7 @@ async def load_snapshot(session: AsyncSession, org_id: int) -> Snapshot:
                 channel_name=channel_names.get(s.channel_id),
             )
             for s in sales
-        ],
+        ]
+        + imported_sales,
         ads=[SAd(id=a.id, data=a.data, valor=a.valor, canal=a.canal) for a in ads],
     )

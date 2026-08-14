@@ -344,7 +344,7 @@ export default function Vendas() {
               </div>
             </div>
             <p className="status-line">
-              A taxa Shopee e a taxa fixa vêm das Configurações da loja.
+              As taxas vêm do e-commerce selecionado.
             </p>
             <div className="modal-actions">
               <button type="button" className="btn secondary" onClick={() => setOpen(false)}>

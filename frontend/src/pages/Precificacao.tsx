@@ -146,7 +146,7 @@ export default function Precificacao() {
                 <Row label="Custo unitário" value={fmtBRL(res.custo_unitario)} />
                 <Row label="Preço unitário" value={fmtBRL(res.preco_unitario)} strong />
                 <Row label="Receita bruta" value={fmtBRL(res.receita_bruta)} />
-                <Row label="Taxa Shopee" value={fmtBRL(res.taxa_shopee_rs)} />
+                <Row label="Comissão do canal" value={fmtBRL(res.taxa_shopee_rs)} />
                 <Row label="Taxa afiliado/extra" value={fmtBRL(res.taxa_afiliado_rs)} />
                 <Row label="Taxa fixa" value={fmtBRL(res.taxa_fixa_rs)} />
                 <Row label="Outros custos" value={fmtBRL(res.outros_custos)} />

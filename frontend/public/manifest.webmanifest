@@ -1,7 +1,7 @@
 {
-  "name": "ERP Shopee",
-  "short_name": "ERP Shopee",
-  "description": "Gestão de estoque, vendas e resultado para vendedor Shopee",
+  "name": "eLucroCerto",
+  "short_name": "eLucroCerto",
+  "description": "Gestão e análise de vendas para e-commerce — estoque, lucro, ADS e caixa",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

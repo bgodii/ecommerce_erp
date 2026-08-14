@@ -183,7 +183,7 @@ O Caddy pega o **certificado SSL sozinho** (Let's Encrypt) e renova automático.
 **registro A** apontando para o IP público da VM:
 ```
 Tipo A   Nome @      Valor 136.248.114.139   (domínio raiz)
-Tipo A   Nome erp    Valor 136.248.114.139   (se quiser usar erp.seudominio.com.br)
+Tipo A   Nome erp    Valor 136.248.114.139   (se quiser usar erp.elucrocerto.com.br)
 ```
 
 **2. Abra a porta 443** na **VCN (Security List, ingress TCP 443)** e no **firewall da VM**:
@@ -195,15 +195,15 @@ sudo netfilter-persistent save
 **3. Configure o domínio no `.env.production`** (na VM):
 ```bash
 # adicione/edite:
-DOMAIN=seudominio.com.br
-CORS_ORIGINS=["https://seudominio.com.br"]
+DOMAIN=elucrocerto.com.br
+CORS_ORIGINS=["https://elucrocerto.com.br"]
 ```
 
 **4. Suba com o compose de HTTPS:**
 ```bash
 docker compose --env-file .env.production -f docker-compose.https.yml up -d --build
 ```
-Acesse **https://seudominio.com.br** — cadeado válido, sem configurar certificado. Os **dados são
+Acesse **https://elucrocerto.com.br** — cadeado válido, sem configurar certificado. Os **dados são
 preservados** (usa o mesmo volume do banco).
 
 **5. (Opcional) Deixe o CD usar HTTPS.** Para o deploy automático usar o compose de HTTPS,
