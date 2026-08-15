@@ -6,14 +6,33 @@ import { SortTh, useSort } from '../components/Sortable'
 import Th from '../components/Th'
 import { api } from '../lib/api'
 import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
-import { PERIOD_PRESETS } from '../lib/periods'
+import { DEFAULT_PRESET, PERIOD_PRESETS } from '../lib/periods'
 
-const VERDICT_HELP: Record<string, string> = {
-  escalar: 'ROAS bem acima do even — vale aumentar o investimento',
-  ok: 'Acima do ROAS even — mantém',
-  atencao: 'Abaixo do ROAS even — está corroendo a margem',
-  pausar: 'Muito abaixo / sem conversão — considere pausar',
+const VERDICT_INFO: Record<string, { label: string; resumo: string; oQueFazer: string }> = {
+  escalar: {
+    label: 'escalar',
+    resumo: 'Vende pelo menos 50% acima do necessário para empatar',
+    oQueFazer: 'Está sobrando margem. Aumente o orçamento aos poucos (20–30% por vez) e acompanhe se o ROAS se mantém.',
+  },
+  ok: {
+    label: 'ok',
+    resumo: 'Passa do ponto de equilíbrio, mas sem folga grande',
+    oQueFazer: 'Dá lucro. Mantenha o orçamento. Para escalar sem risco, melhore antes a conversão (preço, fotos, avaliações).',
+  },
+  atencao: {
+    label: 'atenção',
+    resumo: 'Abaixo do equilíbrio — o anúncio come parte da sua margem',
+    oQueFazer: 'Ainda vende, mas o lucro está indo para o anúncio. Reduza o lance/CPC ou melhore a conversão. Se não melhorar, pause.',
+  },
+  pausar: {
+    label: 'pausar',
+    resumo: 'Muito abaixo do equilíbrio ou gastou sem vender',
+    oQueFazer: 'Está queimando dinheiro. Pause e revise o anúncio (título, foto, preço) antes de reativar.',
+  },
 }
+const VERDICT_HELP: Record<string, string> = Object.fromEntries(
+  Object.entries(VERDICT_INFO).map(([k, v]) => [k, `${v.resumo}. ${v.oQueFazer}`]),
+)
 
 interface AdRow {
   listing: string
@@ -50,7 +69,7 @@ const FAIXA_CONV: Record<string, { label: string; cls: string }> = {
 
 export default function AnaliseAds() {
   const [preset, setPreset] = useState('30d')
-  const [period, setPeriod] = useState(PERIOD_PRESETS[1].calc())
+  const [period, setPeriod] = useState(PERIOD_PRESETS[DEFAULT_PRESET].calc())
   const { data: vg, isLoading } = useQuery({
     queryKey: ['visao-geral', period.from, period.to],
     queryFn: async () =>
@@ -122,6 +141,22 @@ export default function AnaliseAds() {
         </>
       )}
 
+      {vg && vg.ads.fonte === 'importado' && !vg.ads.exato && (
+        <div className="insight info" style={{ marginBottom: 14 }}>
+          <span className="ic">📐</span>
+          <div>
+            <b>Números de ADS estimados para este filtro</b>
+            <p>
+              A Shopee exporta os anúncios <b>agregados por período</b>, sem quebra por dia. Seus
+              relatórios cobrem{' '}
+              {vg.ads.cobertura.map((c: any) => `${c.de} a ${c.ate}`).join(', ')} — para o filtro
+              escolhido, os valores foram <b>rateados proporcionalmente aos dias</b>. Para números
+              exatos por semana, exporte um relatório por semana na Shopee.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <button
           className={`btn sm ${aba === 'resultado' ? '' : 'secondary'}`}
@@ -156,7 +191,7 @@ export default function AnaliseAds() {
                 <SortTh<AdRow> label="ROAS" k="roas" sort={sort} num help="Retorno real: GMV ÷ investido. Quanto vendeu por real gasto." />
                 <SortTh<AdRow> label="ROAS even" k="roas_even" sort={sort} num help="Ponto de equilíbrio (1 ÷ margem): abaixo disso o anúncio dá prejuízo" />
                 <SortTh<AdRow> label="Lucro estim." k="lucro_estimado" sort={sort} num help="GMV × margem − investido. Estimativa do que sobrou depois do anúncio." />
-                <Th label="Veredito" help="escalar = muito acima do even · ok = acima · atenção = abaixo · pausar = bem abaixo ou sem vendas" />
+                <Th label="Veredito" help="Comparação do ROAS real com o ROAS even. Veja a legenda abaixo da tabela." />
               </tr>
             </thead>
             <tbody>
@@ -238,8 +273,8 @@ export default function AnaliseAds() {
       <p className="status-line" style={{ marginTop: 10 }}>
         {aba === 'resultado' ? (
           <>
-            <b>ROAS even</b> = 1 ÷ margem líquida da loja no período. Acima dele o anúncio dá lucro;
-            abaixo, consome mais do que a margem gera. "Lucro estim." = GMV × margem − investimento.
+            <b>ROAS even</b> = 1 ÷ margem líquida. Acima dele o anúncio dá lucro; abaixo, consome mais
+            do que a margem gera. "Lucro estim." = GMV × margem − investimento.
           </>
         ) : (
           <>
@@ -249,6 +284,26 @@ export default function AnaliseAds() {
           </>
         )}
       </p>
+      {aba === 'resultado' && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <h3>O que significa cada veredito</h3>
+          <table>
+            <tbody>
+              {Object.entries(VERDICT_INFO).map(([k, v]) => (
+                <tr key={k}>
+                  <td style={{ width: 96 }}>
+                    <span className={`verdict ${k}`}>{v.label}</span>
+                  </td>
+                  <td style={{ whiteSpace: 'normal' }}>
+                    <b>{v.resumo}.</b>{' '}
+                    <span className="muted">{v.oQueFazer}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   )
 }

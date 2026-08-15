@@ -105,6 +105,8 @@ async def build_overview(
     ads_fonte = "manual"
     ads_spend = ads_gmv = 0.0
     chosen: list[AdStat] = []
+    ads_exato = True
+    ads_cobertura: list[dict] = []
     if stats:
         by_type = defaultdict(list)
         for s in stats:
@@ -114,8 +116,25 @@ async def build_overview(
                 chosen = by_type[t]
                 break
         ads_fonte = "importado"
-        ads_spend = sum(s.spend for s in chosen)
-        ads_gmv = sum(s.gmv for s in chosen)
+
+        # Os relatórios de ADS vêm AGREGADOS por período (a Shopee não exporta por dia).
+        # Quando a janela pedida não cobre o relatório inteiro, rateamos proporcional aos
+        # dias em comum — é uma ESTIMATIVA, sinalizada com `exato: false`.
+        for s in chosen:
+            dias_rel = (s.period_end - s.period_start).days + 1
+            ini = max(s.period_start, dt_from)
+            fim = min(s.period_end, dt_to)
+            dias_comuns = max((fim - ini).days + 1, 0)
+            fator = (dias_comuns / dias_rel) if dias_rel else 0.0
+            s._fator = fator  # usado adiante nas métricas por anúncio
+            if fator < 1:
+                ads_exato = False
+            ads_spend += s.spend * fator
+            ads_gmv += s.gmv * fator
+        ads_cobertura = [
+            {"de": str(p[0]), "ate": str(p[1])}
+            for p in sorted({(s.period_start, s.period_end) for s in chosen})
+        ]
     else:
         ads_spend = sum(a.valor for a in snap.ads if dt_from <= a.data <= dt_to)
     ads = {
@@ -127,6 +146,9 @@ async def build_overview(
         "roas_even": (1.0 / cur["margem"]) if cur["margem"] > 0 else None,
         "margem_base": cur["margem"],
         "fonte": ads_fonte,
+        # exato=False -> houve rateio por dias (relatório cobre período maior que o filtro)
+        "exato": ads_exato,
+        "cobertura": ads_cobertura,
     }
 
     lucro_apos_ads = cur["lucro"] - ads_spend
@@ -191,6 +213,17 @@ async def build_overview(
 
     ads_produtos = []
     for s in chosen:
+        # rateio por dias em comum (ver bloco de ADS acima)
+        fator = getattr(s, "_fator", 1.0)
+        if fator <= 0:
+            continue
+        spend = s.spend * fator
+        gmv = s.gmv * fator
+        impressions = round(s.impressions * fator)
+        clicks = round(s.clicks * fator)
+        conversions = s.conversions * fator
+        items_sold = s.items_sold * fator
+
         margem_ref = margem_loja
         fonte_margem = "loja"
         l = listings.get(s.listing_ref)
@@ -200,9 +233,9 @@ async def build_overview(
             elif l.kit_id and l.kit_id in margem_kit:
                 margem_ref, fonte_margem = margem_kit[l.kit_id], "kit"
         roas_eq = (1.0 / margem_ref) if margem_ref > 0 else None
-        if s.spend <= 0:
+        if spend <= 0:
             continue
-        if s.items_sold == 0:
+        if items_sold == 0:
             veredito = "pausar"
         elif roas_eq is None:
             veredito = "ok" if s.roas >= 4 else ("atencao" if s.roas >= 2 else "pausar")
@@ -219,12 +252,12 @@ async def build_overview(
         # cliq/venda= quantos cliques você paga até sair uma venda
         # CPC máx   = teto que o clique pode custar sem dar prejuízo:
         #             (ticket × margem) ÷ cliques_por_venda
-        cpc = (s.spend / s.clicks) if s.clicks else 0.0
-        ctr = (s.clicks / s.impressions) if s.impressions else 0.0
-        conv = (s.conversions / s.clicks) if s.clicks else 0.0
-        cliques_por_venda = (s.clicks / s.conversions) if s.conversions else None
-        custo_por_venda = (s.spend / s.conversions) if s.conversions else None
-        ticket = (s.gmv / s.conversions) if s.conversions else None
+        cpc = (spend / clicks) if clicks else 0.0
+        ctr = (clicks / impressions) if impressions else 0.0
+        conv = (conversions / clicks) if clicks else 0.0
+        cliques_por_venda = (clicks / conversions) if conversions else None
+        custo_por_venda = (spend / conversions) if conversions else None
+        ticket = (gmv / conversions) if conversions else None
         margem_por_venda = (ticket * margem_ref) if (ticket and margem_ref > 0) else None
         cpc_maximo = (
             margem_por_venda / cliques_por_venda
@@ -237,7 +270,7 @@ async def build_overview(
         )
 
         # faixa da taxa de conversão (referência de marketplace)
-        if not s.clicks:
+        if not clicks:
             faixa_conv = "sem_dados"
         elif conv >= 0.02:
             faixa_conv = "otima"
@@ -252,13 +285,13 @@ async def build_overview(
             {
                 "listing": s.listing_ref,
                 "nome": (l.name if l else s.ad_name) or s.ad_name,
-                "spend": s.spend,
-                "gmv": s.gmv,
-                "itens_vendidos": s.items_sold,
+                "spend": spend,
+                "gmv": gmv,
+                "itens_vendidos": round(items_sold),
                 "roas": s.roas,
                 "roas_even": roas_eq,
                 "roas_equilibrio": roas_eq,  # alias (compat)
-                "lucro_estimado": s.gmv * margem_ref - s.spend if margem_ref > 0 else None,
+                "lucro_estimado": gmv * margem_ref - spend if margem_ref > 0 else None,
                 "fonte_margem": fonte_margem,
                 "margem_usada": margem_ref,
                 "vinculado_a": (
@@ -266,9 +299,9 @@ async def build_overview(
                 ) if l else None,
                 "veredito": veredito,
                 # funil
-                "impressoes": s.impressions,
-                "cliques": s.clicks,
-                "conversoes": s.conversions,
+                "impressoes": impressions,
+                "cliques": clicks,
+                "conversoes": round(conversions),
                 "ctr": ctr,
                 "cpc": cpc,
                 "taxa_conversao": conv,

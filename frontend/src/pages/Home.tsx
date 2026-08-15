@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import PeriodPicker from '../components/PeriodPicker'
 import { api } from '../lib/api'
 import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
-import { PERIOD_PRESETS } from '../lib/periods'
+import { DEFAULT_PRESET, PERIOD_PRESETS } from '../lib/periods'
 
 const useOverview = (from: string, to: string) =>
   useQuery({
@@ -82,7 +82,7 @@ function BarChart({ data }: { data: { data: string; receita: number; lucro: numb
 
 export default function Home() {
   const [preset, setPreset] = useState('30d')
-  const [period, setPeriod] = useState(PERIOD_PRESETS[1].calc())
+  const [period, setPeriod] = useState(PERIOD_PRESETS[DEFAULT_PRESET].calc())
   const { data: vg, isLoading } = useOverview(period.from, period.to)
 
   if (isLoading || !vg) return <div className="center-msg">Carregando sua visão geral…</div>
