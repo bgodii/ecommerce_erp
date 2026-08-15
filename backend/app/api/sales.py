@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.core.deps import CurrentUser, SessionDep
 from app.models.channel import Channel
 from app.models.kit import Kit
+from app.models.order import Order
 from app.models.product import Product
 from app.models.sale import Sale
 from app.schemas.sale import SaleIn, SaleUpdate
@@ -66,6 +67,33 @@ async def create_sale(data: SaleIn, user: CurrentUser, session: SessionDep):
                 "Confirme para lançar mesmo assim.",
             )
 
+    # ANTI-DUPLICIDADE: o mesmo número de pedido não pode entrar duas vezes — nem como
+    # outro lançamento manual, nem se já veio do import do marketplace.
+    if data.pedido:
+        ja_manual = (
+            await session.execute(
+                select(Sale).where(Sale.organization_id == org_id, Sale.pedido == data.pedido)
+            )
+        ).scalars().first()
+        if ja_manual is not None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"O pedido {data.pedido} já foi lançado. Edite o existente em vez de criar outro.",
+            )
+        ja_importado = (
+            await session.execute(
+                select(Order).where(
+                    Order.organization_id == org_id, Order.order_sn == data.pedido
+                )
+            )
+        ).scalars().first()
+        if ja_importado is not None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"O pedido {data.pedido} já foi importado do marketplace (com as taxas reais). "
+                "Não é preciso lançá-lo à mão.",
+            )
+
     settings = await get_or_create_settings(session, org_id)
 
     # Taxas default: do canal selecionado (se houver), senão das Configurações da loja.
@@ -99,6 +127,55 @@ async def create_sale(data: SaleIn, user: CurrentUser, session: SessionDep):
     await session.commit()
     await session.refresh(sale)
     return await _row_for(session, org_id, sale.id)
+
+
+async def _vendas_duplicadas(session, org_id: int) -> list[Sale]:
+    """Lançamentos manuais cujo pedido também veio do import do marketplace."""
+    pedidos_importados = {
+        o.order_sn
+        for o in (
+            await session.execute(select(Order).where(Order.organization_id == org_id))
+        ).scalars()
+        if o.order_sn
+    }
+    if not pedidos_importados:
+        return []
+    return [
+        s
+        for s in (
+            await session.execute(select(Sale).where(Sale.organization_id == org_id))
+        ).scalars()
+        if s.pedido and s.pedido in pedidos_importados
+    ]
+
+
+@router.get("/duplicadas")
+async def listar_duplicadas(user: CurrentUser, session: SessionDep):
+    """Vendas manuais substituídas por um pedido importado (não entram mais nos cálculos)."""
+    dups = await _vendas_duplicadas(session, user.organization_id)
+    return {
+        "total": len(dups),
+        "vendas": [
+            {
+                "id": s.id,
+                "pedido": s.pedido,
+                "data_venda": str(s.data_venda),
+                "qty": s.qty,
+                "preco_unitario": s.preco_unitario,
+            }
+            for s in dups
+        ],
+    }
+
+
+@router.delete("/duplicadas")
+async def remover_duplicadas(user: CurrentUser, session: SessionDep):
+    """Remove os lançamentos manuais já cobertos pelo import (mantém os pedidos importados)."""
+    dups = await _vendas_duplicadas(session, user.organization_id)
+    for s in dups:
+        await session.delete(s)
+    await session.commit()
+    return {"removidas": len(dups)}
 
 
 @router.patch("/{sale_id}")
@@ -147,12 +224,34 @@ async def import_sales(
     }
     settings = await get_or_create_settings(session, org_id)
 
+    todas_vendas = (
+        await session.execute(select(Sale).where(Sale.organization_id == org_id))
+    ).scalars().all()
     existing = {
         (s.pedido, s.item_type, s.product_id if s.item_type == "product" else s.kit_id)
-        for s in (
-            await session.execute(select(Sale).where(Sale.organization_id == org_id))
-        ).scalars()
+        for s in todas_vendas
         if s.pedido
+    }
+    # Sem número de pedido não dá para casar por chave — usamos data+item+qtd+preço
+    # para não reinserir a mesma linha em um reimport.
+    existing_sem_pedido = {
+        (
+            s.data_venda,
+            s.item_type,
+            s.product_id if s.item_type == "product" else s.kit_id,
+            s.qty,
+            round(s.preco_unitario, 2),
+        )
+        for s in todas_vendas
+        if not s.pedido
+    }
+    # Pedidos já importados do marketplace não devem entrar de novo como venda manual.
+    pedidos_importados = {
+        o.order_sn
+        for o in (
+            await session.execute(select(Order).where(Order.organization_id == org_id))
+        ).scalars()
+        if o.order_sn
     }
 
     seen: set = set()
@@ -174,10 +273,29 @@ async def import_sales(
         item_nome = p.dropdown_name if p else k.nome
         key = (r["pedido"], item_type, item_id)
 
+        # já importado do marketplace? não duplica.
+        if r["pedido"] and r["pedido"] in pedidos_importados:
+            duplicados += 1
+            preview.append({**r, "item": item_nome, "status": "já importado"})
+            continue
         if r["pedido"] and (key in existing or key in seen):
             duplicados += 1
             preview.append({**r, "item": item_nome, "status": "duplicado"})
             continue
+        # linha sem número de pedido: usa data+item+qtd+preço como chave
+        if not r["pedido"]:
+            key_sp = (
+                date.fromisoformat(r["data_venda"]),
+                item_type,
+                item_id,
+                r["qty"],
+                round(r["preco_unitario"], 2),
+            )
+            if key_sp in existing_sem_pedido or key_sp in seen:
+                duplicados += 1
+                preview.append({**r, "item": item_nome, "status": "duplicado"})
+                continue
+            seen.add(key_sp)
 
         seen.add(key)
         novos += 1

@@ -7,7 +7,9 @@ import Th from '../components/Th'
 import {
   useChannels,
   useDeleteSale,
+  useDuplicatedSales,
   useImportSales,
+  useRemoveDuplicatedSales,
   useKits,
   useProducts,
   useSales,
@@ -26,6 +28,8 @@ export default function Vendas() {
   const save = useSaveSale()
   const del = useDeleteSale()
   const importSales = useImportSales()
+  const { data: dups } = useDuplicatedSales()
+  const removeDups = useRemoveDuplicatedSales()
   const [open, setOpen] = useState(false)
   const [err, setErr] = useState('')
   // Import CSV (ERP-030)
@@ -203,6 +207,31 @@ export default function Vendas() {
           </button>
         </div>
       </div>
+
+      {!!dups?.total && (
+        <div className="insight alerta" style={{ marginBottom: 14 }}>
+          <span className="ic">🔁</span>
+          <div style={{ flex: 1 }}>
+            <b>{dups.total} venda(s) lançada(s) à mão que também vieram do import</b>
+            <p>
+              Pedidos: {dups.vendas.slice(0, 5).map((v: any) => v.pedido).join(', ')}
+              {dups.total > 5 ? '…' : ''}. Elas <b>não</b> estão sendo somadas em dobro (o pedido
+              importado tem prioridade), mas continuam guardadas. Pode remover com segurança.
+            </p>
+            <button
+              className="btn sm"
+              style={{ marginTop: 8 }}
+              disabled={removeDups.isPending}
+              onClick={() => {
+                if (confirm(`Remover ${dups.total} lançamento(s) manual(is) duplicado(s)?`))
+                  removeDups.mutate()
+              }}
+            >
+              {removeDups.isPending ? 'Removendo…' : `Remover ${dups.total} duplicada(s)`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {semCusto > 0 && (
         <div className="insight alerta" style={{ marginBottom: 14 }}>

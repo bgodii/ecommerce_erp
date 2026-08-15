@@ -157,6 +157,24 @@ export function useDeleteSale() {
   return useMutation({ mutationFn: async (id: number) => api.delete(`/sales/${id}`), onSuccess: invalidate })
 }
 
+export const useDuplicatedSales = () =>
+  useQuery({
+    queryKey: ['sales-duplicadas'],
+    queryFn: async () => (await api.get('/sales/duplicadas')).data,
+  })
+
+export function useRemoveDuplicatedSales() {
+  const invalidate = useDomainInvalidation()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => (await api.delete('/sales/duplicadas')).data,
+    onSuccess: () => {
+      invalidate()
+      qc.invalidateQueries({ queryKey: ['sales-duplicadas'] })
+    },
+  })
+}
+
 export function useImportSales() {
   const invalidate = useDomainInvalidation()
   return useMutation({

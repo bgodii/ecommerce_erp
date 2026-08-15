@@ -51,14 +51,17 @@ async def load_snapshot(session: AsyncSession, org_id: int) -> Snapshot:
             await session.execute(select(Channel).where(Channel.organization_id == org_id))
         ).scalars()
     }
-    orders = (
-        await session.execute(
-            select(Order).where(
-                Order.organization_id == org_id,
-                Order.status.notin_(ORDER_EXCLUDED_STATUSES),
-            )
-        )
+    all_orders = (
+        await session.execute(select(Order).where(Order.organization_id == org_id))
     ).scalars().all()
+    orders = [o for o in all_orders if o.status not in ORDER_EXCLUDED_STATUSES]
+
+    # ANTI-DUPLICIDADE: o mesmo pedido pode ter sido lançado à mão (ou por CSV de vendas)
+    # E importado do marketplace. O importado é a fonte da verdade (traz taxas reais e
+    # status), então o lançamento manual do MESMO número de pedido é ignorado aqui —
+    # sem apagar nada, apenas não somando duas vezes.
+    pedidos_importados = {o.order_sn for o in all_orders if o.order_sn}
+    sales = [s for s in sales if not (s.pedido and s.pedido in pedidos_importados)]
 
     # Pedidos importados viram vendas do snapshot com as TAXAS REAIS do pedido,
     # rateadas por item na proporção do subtotal. O truque: derivamos o percentual
