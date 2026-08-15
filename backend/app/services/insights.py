@@ -193,6 +193,40 @@ async def build_overview(
             veredito = "atencao"
         else:
             veredito = "pausar"
+        # --- funil de cliques -------------------------------------------------
+        # CPC       = quanto custa cada clique
+        # cliq/venda= quantos cliques você paga até sair uma venda
+        # CPC máx   = teto que o clique pode custar sem dar prejuízo:
+        #             (ticket × margem) ÷ cliques_por_venda
+        cpc = (s.spend / s.clicks) if s.clicks else 0.0
+        ctr = (s.clicks / s.impressions) if s.impressions else 0.0
+        conv = (s.conversions / s.clicks) if s.clicks else 0.0
+        cliques_por_venda = (s.clicks / s.conversions) if s.conversions else None
+        custo_por_venda = (s.spend / s.conversions) if s.conversions else None
+        ticket = (s.gmv / s.conversions) if s.conversions else None
+        margem_por_venda = (ticket * margem_ref) if (ticket and margem_ref > 0) else None
+        cpc_maximo = (
+            margem_por_venda / cliques_por_venda
+            if (margem_por_venda and cliques_por_venda)
+            else None
+        )
+        cliques_maximos = (margem_por_venda / cpc) if (margem_por_venda and cpc) else None
+        conversao_minima = (
+            (cpc / margem_por_venda) if (margem_por_venda and cpc) else None
+        )
+
+        # faixa da taxa de conversão (referência de marketplace)
+        if not s.clicks:
+            faixa_conv = "sem_dados"
+        elif conv >= 0.02:
+            faixa_conv = "otima"
+        elif conv >= 0.01:
+            faixa_conv = "boa"
+        elif conv >= 0.005:
+            faixa_conv = "atencao"
+        else:
+            faixa_conv = "ruim"
+
         ads_produtos.append(
             {
                 "listing": s.listing_ref,
@@ -206,6 +240,22 @@ async def build_overview(
                 "lucro_estimado": s.gmv * margem_ref - s.spend if margem_ref > 0 else None,
                 "fonte_margem": fonte_margem,
                 "veredito": veredito,
+                # funil
+                "impressoes": s.impressions,
+                "cliques": s.clicks,
+                "conversoes": s.conversions,
+                "ctr": ctr,
+                "cpc": cpc,
+                "taxa_conversao": conv,
+                "faixa_conversao": faixa_conv,
+                "cliques_por_venda": cliques_por_venda,
+                "custo_por_venda": custo_por_venda,
+                "ticket_medio": ticket,
+                "margem_por_venda": margem_por_venda,
+                "cpc_maximo": cpc_maximo,
+                "cliques_maximos_por_venda": cliques_maximos,
+                "conversao_minima": conversao_minima,
+                "cpc_saudavel": (cpc <= cpc_maximo) if cpc_maximo else None,
             }
         )
     ads_produtos.sort(key=lambda x: -x["spend"])
@@ -314,6 +364,41 @@ async def build_overview(
                 "icone": "📦",
                 "titulo": f"Estoque acabando: {nomes}",
                 "texto": "Menos de 7 dias de cobertura no ritmo atual de vendas. Programe a reposição.",
+            }
+        )
+
+    # anúncio pagando caro demais pelo clique (gasta acima do teto de equilíbrio)
+    caros = [
+        p for p in ads_produtos
+        if p["cpc_maximo"] and p["cpc"] > p["cpc_maximo"] and p["spend"] >= 5
+    ]
+    if caros:
+        pior = max(caros, key=lambda p: p["spend"])
+        insights.append(
+            {
+                "tipo": "alerta",
+                "icone": "🖱️",
+                "titulo": f"Clique caro demais: {pior['nome'][:40]}",
+                "texto": (
+                    f"Você paga R$ {pior['cpc']:.2f} por clique, mas o teto pra não ter prejuízo é "
+                    f"R$ {pior['cpc_maximo']:.2f}. São {pior['cliques_por_venda']:.0f} cliques por venda "
+                    f"quando o máximo seria {pior['cliques_maximos_por_venda']:.0f}."
+                ),
+            }
+        )
+
+    # anúncio queimando cliques sem converter
+    sem_conversao = [
+        p for p in ads_produtos if p["cliques"] >= 50 and p["conversoes"] == 0 and p["spend"] > 0
+    ]
+    if sem_conversao:
+        pior = max(sem_conversao, key=lambda p: p["cliques"])
+        insights.append(
+            {
+                "tipo": "alerta",
+                "icone": "🕳️",
+                "titulo": f"{pior['cliques']} cliques e nenhuma venda: {pior['nome'][:36]}",
+                "texto": "O anúncio atrai clique mas não converte. Revise preço, fotos, título e avaliações — ou pause.",
             }
         )
 

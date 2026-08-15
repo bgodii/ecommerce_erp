@@ -25,6 +25,27 @@ interface AdRow {
   roas_even: number | null
   lucro_estimado: number | null
   veredito: string
+  // funil de cliques
+  impressoes: number
+  cliques: number
+  conversoes: number
+  ctr: number
+  cpc: number
+  taxa_conversao: number
+  faixa_conversao: string
+  cliques_por_venda: number | null
+  custo_por_venda: number | null
+  cpc_maximo: number | null
+  cliques_maximos_por_venda: number | null
+  cpc_saudavel: boolean | null
+}
+
+const FAIXA_CONV: Record<string, { label: string; cls: string }> = {
+  otima: { label: 'ótima', cls: 'escalar' },
+  boa: { label: 'boa', cls: 'ok' },
+  atencao: { label: 'baixa', cls: 'atencao' },
+  ruim: { label: 'ruim', cls: 'pausar' },
+  sem_dados: { label: '—', cls: 'ok' },
 }
 
 export default function AnaliseAds() {
@@ -35,6 +56,7 @@ export default function AnaliseAds() {
     queryFn: async () =>
       (await api.get('/reports/visao-geral', { params: { from: period.from, to: period.to } })).data,
   })
+  const [aba, setAba] = useState<'resultado' | 'cliques'>('resultado')
   const rows: AdRow[] = vg?.ads_produtos ?? []
   const sort = useSort<AdRow>(rows, 'spend', 'desc')
   const roasEven = vg?.ads?.roas_even ?? null
@@ -100,6 +122,21 @@ export default function AnaliseAds() {
         </>
       )}
 
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <button
+          className={`btn sm ${aba === 'resultado' ? '' : 'secondary'}`}
+          onClick={() => setAba('resultado')}
+        >
+          💰 Resultado
+        </button>
+        <button
+          className={`btn sm ${aba === 'cliques' ? '' : 'secondary'}`}
+          onClick={() => setAba('cliques')}
+        >
+          🖱️ Funil de cliques
+        </button>
+      </div>
+
       {isLoading ? (
         <div className="center-msg">Carregando…</div>
       ) : !rows.length ? (
@@ -107,7 +144,7 @@ export default function AnaliseAds() {
           Nenhum relatório de ADS cobre este período.{' '}
           <Link className="link" to="/importar">Importar relatórios →</Link>
         </div>
-      ) : (
+      ) : aba === 'resultado' ? (
         <div className="table-wrap">
           <table>
             <thead>
@@ -149,10 +186,68 @@ export default function AnaliseAds() {
             </tbody>
           </table>
         </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <Th label="Anúncio / Produto" help="Nome do anúncio no marketplace" />
+                <SortTh<AdRow> label="Impressões" k="impressoes" sort={sort} num help="Quantas vezes o anúncio apareceu" />
+                <SortTh<AdRow> label="Cliques" k="cliques" sort={sort} num help="Quantas pessoas clicaram" />
+                <SortTh<AdRow> label="CTR" k="ctr" sort={sort} num help="Cliques ÷ impressões. Mede se o anúncio chama atenção." />
+                <SortTh<AdRow> label="Conversão" k="taxa_conversao" sort={sort} num help="Vendas ÷ cliques. Mede se a página convence quem clicou." />
+                <SortTh<AdRow> label="Cliq/venda" k="cliques_por_venda" sort={sort} num help="Quantos cliques você paga até sair uma venda" />
+                <SortTh<AdRow> label="Máx. cliq/venda" k="cliques_maximos_por_venda" sort={sort} num help="Quantos cliques você PODE pagar por venda sem prejuízo (margem da venda ÷ CPC)" />
+                <SortTh<AdRow> label="CPC" k="cpc" sort={sort} num help="Custo por clique: investido ÷ cliques" />
+                <SortTh<AdRow> label="CPC máx." k="cpc_maximo" sort={sort} num help="Teto do clique: (ticket × margem) ÷ cliques por venda. Acima disso o anúncio dá prejuízo." />
+                <SortTh<AdRow> label="Custo/venda" k="custo_por_venda" sort={sort} num help="Quanto de anúncio custou cada venda" />
+              </tr>
+            </thead>
+            <tbody>
+              {sort.sorted.map((p) => {
+                const f = FAIXA_CONV[p.faixa_conversao] ?? FAIXA_CONV.sem_dados
+                return (
+                  <tr key={p.listing + p.nome}>
+                    <td style={{ whiteSpace: 'normal', maxWidth: 320 }}>{p.nome}</td>
+                    <td className="num">{fmtNum(p.impressoes)}</td>
+                    <td className="num">{fmtNum(p.cliques)}</td>
+                    <td className="num">{fmtNum(p.ctr * 100, 2)}%</td>
+                    <td className="num">
+                      <span className={`verdict ${f.cls}`} title={`Faixa: ${f.label}`}>
+                        {fmtNum(p.taxa_conversao * 100, 2)}%
+                      </span>
+                    </td>
+                    <td className="num" style={{ fontWeight: 700 }}>
+                      {p.cliques_por_venda != null ? fmtNum(p.cliques_por_venda, 0) : '—'}
+                    </td>
+                    <td className="num muted">
+                      {p.cliques_maximos_por_venda != null ? fmtNum(p.cliques_maximos_por_venda, 0) : '—'}
+                    </td>
+                    <td className={`num ${p.cpc_saudavel === false ? 'neg' : ''}`} style={{ fontWeight: 700 }}>
+                      {fmtBRL(p.cpc)}
+                    </td>
+                    <td className="num muted">{p.cpc_maximo != null ? fmtBRL(p.cpc_maximo) : '—'}</td>
+                    <td className="num">{p.custo_por_venda != null ? fmtBRL(p.custo_por_venda) : '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       <p className="status-line" style={{ marginTop: 10 }}>
-        <b>ROAS even</b> = 1 ÷ margem líquida da loja no período. Acima dele o anúncio dá lucro;
-        abaixo, consome mais do que a margem gera. "Lucro estim." = GMV × margem − investimento.
+        {aba === 'resultado' ? (
+          <>
+            <b>ROAS even</b> = 1 ÷ margem líquida da loja no período. Acima dele o anúncio dá lucro;
+            abaixo, consome mais do que a margem gera. "Lucro estim." = GMV × margem − investimento.
+          </>
+        ) : (
+          <>
+            <b>CPC máx.</b> = (ticket médio × margem) ÷ cliques por venda — o teto que cada clique pode
+            custar. Se o <b>CPC</b> passar do teto (em vermelho), o anúncio queima mais do que a venda
+            deixa. <b>Conversão</b>: ótima ≥2% · boa 1–2% · baixa 0,5–1% · ruim &lt;0,5%.
+          </>
+        )}
       </p>
     </>
   )
