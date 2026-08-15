@@ -83,6 +83,21 @@ nano .env.production   # defina POSTGRES_PASSWORD, JWT_SECRET (openssl rand -hex
 
 > `.env.production` fica **só na VM** (é gitignored). O deploy automático nunca o sobrescreve.
 
+### ⚠️ Evite subir o compose de DEV por engano
+
+Um `docker compose up -d` **sem `-f`** usa o `docker-compose.yml` (desenvolvimento): publica o front
+na **8090** em vez da 80 e tenta conectar no banco com a senha padrão `erp` — o que derruba o site com
+502/"password authentication failed". Para blindar, crie na VM um `.env` que fixa o compose de produção:
+
+```bash
+cd ~/ecommerce_erp
+{ echo "COMPOSE_FILE=docker-compose.prod.yml"; grep -v '^COMPOSE_FILE=' .env.production; } > .env
+chmod 600 .env
+```
+
+Com isso, `docker compose up -d`, `docker compose ps` e `logs` já apontam para produção — sem precisar
+lembrar dos parâmetros. (O `.env` é gitignored e o CD continua funcionando normalmente.)
+
 ## 6. Levar seus dados atuais para a VM (recomendado)
 
 Se você já usou o sistema e quer manter tudo (login, produtos, vendas, canais) **sem redigitar**,
