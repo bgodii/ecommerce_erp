@@ -317,6 +317,12 @@ export function useDeleteMapping() {
   })
 }
 
+export const useRoasMarginal = (dias = 7) =>
+  useQuery({
+    queryKey: ['roas-marginal', dias],
+    queryFn: async () => (await api.get('/reports/roas-marginal', { params: { dias } })).data,
+  })
+
 // ---- Anúncios (listings) ----
 export const useListings = () =>
   useQuery({ queryKey: ['listings'], queryFn: async () => (await api.get('/listings')).data })

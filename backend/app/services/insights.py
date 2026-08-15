@@ -56,6 +56,126 @@ def _sum_rows(rows: list[dict]) -> dict:
     }
 
 
+def _ads_na_janela(stats: list[AdStat], dt_from: date, dt_to: date) -> dict:
+    """Soma spend/GMV dos relatórios que cobrem a janela, rateando por dias em comum.
+
+    `exato` indica se a janela casa com o período dos relatórios (sem rateio) — só nesse
+    caso o número é confiável para comparar períodos.
+    """
+    by_type: dict[str, list[AdStat]] = defaultdict(list)
+    for s in stats:
+        if s.period_start <= dt_to and s.period_end >= dt_from:
+            by_type[s.report_type].append(s)
+    chosen: list[AdStat] = []
+    for t in _ADS_PRIORITY:
+        if by_type.get(t):
+            chosen = by_type[t]
+            break
+
+    spend = gmv = 0.0
+    exato = bool(chosen)
+    relatorios = set()
+    for s in chosen:
+        dias_rel = (s.period_end - s.period_start).days + 1
+        ini, fim = max(s.period_start, dt_from), min(s.period_end, dt_to)
+        dias_comuns = max((fim - ini).days + 1, 0)
+        fator = (dias_comuns / dias_rel) if dias_rel else 0.0
+        if fator < 1:
+            exato = False
+        spend += s.spend * fator
+        gmv += s.gmv * fator
+        relatorios.add((s.period_start, s.period_end))
+    return {"spend": spend, "gmv": gmv, "exato": exato, "relatorios": relatorios}
+
+
+async def roas_marginal(
+    session: AsyncSession, org_id: int, dias: int = 7, ref: date | None = None
+) -> dict:
+    """Compara os últimos `dias` com os `dias` anteriores e calcula o ROAS MARGINAL.
+
+    ROAS marginal = (GMV novo − GMV velho) ÷ (investimento novo − investimento velho).
+    É ele — e não o ROAS médio — que diz se vale a pena continuar escalando: o lucro
+    total é máximo quando o marginal encosta no ROAS even.
+    """
+    ref = ref or date.today()
+    atual_de, atual_ate = ref - timedelta(days=dias - 1), ref
+    ant_de, ant_ate = atual_de - timedelta(days=dias), atual_de - timedelta(days=1)
+
+    stats = (
+        await session.execute(select(AdStat).where(AdStat.organization_id == org_id))
+    ).scalars().all()
+    atual = _ads_na_janela(stats, atual_de, atual_ate)
+    anterior = _ads_na_janela(stats, ant_de, ant_ate)
+
+    # margem/ROAS even do período atual (mesma base da visão geral)
+    vg = await build_overview(session, org_id, atual_de, atual_ate)
+    margem = vg["ads"]["margem_base"]
+    even = (1 / margem) if margem > 0 else None
+
+    d_spend = atual["spend"] - anterior["spend"]
+    d_gmv = atual["gmv"] - anterior["gmv"]
+    marginal = (d_gmv / d_spend) if d_spend > 0 else None
+
+    # os dois períodos vieram do MESMO relatório? então tudo foi rateado e a comparação
+    # é artificial (proporcional aos dias) — não dá para concluir nada.
+    mesmo_relatorio = bool(
+        atual["relatorios"] and atual["relatorios"] == anterior["relatorios"]
+    )
+    confiavel = bool(marginal and not mesmo_relatorio and atual["exato"] and anterior["exato"])
+
+    if mesmo_relatorio:
+        veredito, recomendacao = "sem_dados", (
+            "Os dois períodos vêm do mesmo relatório agregado, então a comparação não é real. "
+            "Exporte os relatórios de ADS por semana na Shopee para medir o ROAS marginal."
+        )
+    elif d_spend <= 0:
+        veredito, recomendacao = "sem_aumento", (
+            "Você não aumentou o investimento no período — não há marginal para avaliar. "
+            "Suba 20–30% do orçamento e compare de novo daqui a 7 dias."
+        )
+    elif even is None:
+        veredito, recomendacao = "sem_margem", "Cadastre os custos dos produtos para calcular a margem."
+    elif marginal >= even * 1.3:
+        veredito, recomendacao = "escalar", (
+            f"O dinheiro extra rendeu {marginal:.2f}× — bem acima do even ({even:.2f}×). "
+            "Pode subir mais 20–30% e medir de novo."
+        )
+    elif marginal >= even:
+        veredito, recomendacao = "no_limite", (
+            f"O extra rendeu {marginal:.2f}×, pouco acima do even ({even:.2f}×). "
+            "Você está perto do ponto de lucro máximo — suba pouco (10%) ou segure."
+        )
+    else:
+        veredito, recomendacao = "voltar", (
+            f"O dinheiro extra rendeu só {marginal:.2f}×, abaixo do even ({even:.2f}×). "
+            "Esse aumento destruiu lucro — volte ao orçamento anterior."
+        )
+
+    def _bloco(p: dict, de: date, ate: date) -> dict:
+        return {
+            "de": str(de),
+            "ate": str(ate),
+            "spend": p["spend"],
+            "gmv": p["gmv"],
+            "roas": (p["gmv"] / p["spend"]) if p["spend"] else 0.0,
+            "lucro_estimado": p["gmv"] * margem - p["spend"] if margem > 0 else None,
+        }
+
+    return {
+        "dias": dias,
+        "atual": _bloco(atual, atual_de, atual_ate),
+        "anterior": _bloco(anterior, ant_de, ant_ate),
+        "delta_spend": d_spend,
+        "delta_gmv": d_gmv,
+        "roas_marginal": marginal,
+        "roas_even": even,
+        "margem": margem,
+        "confiavel": confiavel,
+        "veredito": veredito,
+        "recomendacao": recomendacao,
+    }
+
+
 async def build_overview(
     session: AsyncSession, org_id: int, dt_from: date, dt_to: date
 ) -> dict:

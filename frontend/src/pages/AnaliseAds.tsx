@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useRoasMarginal } from '../hooks/queries'
 import PeriodPicker from '../components/PeriodPicker'
 import { SortTh, useSort } from '../components/Sortable'
 import Th from '../components/Th'
@@ -75,6 +76,7 @@ export default function AnaliseAds() {
     queryFn: async () =>
       (await api.get('/reports/visao-geral', { params: { from: period.from, to: period.to } })).data,
   })
+  const { data: mg } = useRoasMarginal(7)
   const [aba, setAba] = useState<'resultado' | 'cliques'>('resultado')
   const rows: AdRow[] = vg?.ads_produtos ?? []
   const sort = useSort<AdRow>(rows, 'spend', 'desc')
@@ -154,6 +156,72 @@ export default function AnaliseAds() {
               exatos por semana, exporte um relatório por semana na Shopee.
             </p>
           </div>
+        </div>
+      )}
+
+      {mg && (
+        <div className="card" style={{ marginBottom: 18 }}>
+          <h3>📊 Devo escalar? (ROAS marginal — 7 dias vs 7 anteriores)</h3>
+          <div className="table-wrap" style={{ marginBottom: 10 }}>
+            <table>
+              <thead>
+                <tr>
+                  <Th label="Período" help="Janelas comparadas" />
+                  <Th label="Investido" help="Gasto em anúncios na janela" num />
+                  <Th label="GMV" help="Valor vendido atribuído aos anúncios" num />
+                  <Th label="ROAS médio" help="GMV ÷ investido de toda a janela" num />
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Anterior ({mg.anterior.de} a {mg.anterior.ate})</td>
+                  <td className="num">{fmtBRL(mg.anterior.spend)}</td>
+                  <td className="num">{fmtBRL(mg.anterior.gmv)}</td>
+                  <td className="num">{fmtNum(mg.anterior.roas, 2)}×</td>
+                </tr>
+                <tr>
+                  <td><b>Atual ({mg.atual.de} a {mg.atual.ate})</b></td>
+                  <td className="num"><b>{fmtBRL(mg.atual.spend)}</b></td>
+                  <td className="num"><b>{fmtBRL(mg.atual.gmv)}</b></td>
+                  <td className="num"><b>{fmtNum(mg.atual.roas, 2)}×</b></td>
+                </tr>
+                <tr className="row-selected">
+                  <td><b>Diferença (o dinheiro extra)</b></td>
+                  <td className="num">{fmtBRL(mg.delta_spend)}</td>
+                  <td className="num">{fmtBRL(mg.delta_gmv)}</td>
+                  <td className="num" style={{ fontWeight: 700 }}>
+                    {mg.roas_marginal != null ? `${fmtNum(mg.roas_marginal, 2)}× marginal` : '—'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div
+            className={`insight ${
+              mg.veredito === 'escalar' ? 'sucesso' : mg.veredito === 'voltar' ? 'alerta' : 'info'
+            }`}
+          >
+            <span className="ic">
+              {mg.veredito === 'escalar' ? '🚀' : mg.veredito === 'voltar' ? '🛑' : mg.veredito === 'no_limite' ? '🎯' : 'ℹ️'}
+            </span>
+            <div>
+              <b>
+                {mg.veredito === 'escalar' && 'Pode escalar'}
+                {mg.veredito === 'no_limite' && 'Você está no ponto de lucro máximo'}
+                {mg.veredito === 'voltar' && 'Volte o orçamento'}
+                {mg.veredito === 'sem_aumento' && 'Sem aumento para avaliar'}
+                {mg.veredito === 'sem_dados' && 'Dados insuficientes'}
+                {mg.veredito === 'sem_margem' && 'Falta cadastrar custos'}
+              </b>
+              <p>{mg.recomendacao}</p>
+            </div>
+          </div>
+          <p className="status-line">
+            O <b>ROAS marginal</b> é o retorno do dinheiro que você adicionou — e não a média.
+            Enquanto ele ficar acima do ROAS even ({mg.roas_even ? `${fmtNum(mg.roas_even, 2)}×` : '—'}),
+            aumentar o investimento ainda gera lucro; abaixo dele, cada real a mais reduz seu lucro
+            mesmo que a média continue bonita.
+          </p>
         </div>
       )}
 
