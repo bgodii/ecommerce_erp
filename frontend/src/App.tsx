@@ -17,6 +17,7 @@ import Register from './pages/Register'
 import Roas from './pages/Roas'
 import Usuarios from './pages/Usuarios'
 import Vendas from './pages/Vendas'
+import VinculoAnuncios from './pages/VinculoAnuncios'
 import VinculoSkus from './pages/VinculoSkus'
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/vendas" element={<Vendas />} />
           <Route path="/importar" element={<Imports />} />
           <Route path="/vinculo-skus" element={<VinculoSkus />} />
+          <Route path="/vinculo-anuncios" element={<VinculoAnuncios />} />
           <Route path="/kits" element={<Kits />} />
           <Route path="/ecommerces" element={<Ecommerces />} />
           <Route path="/ads" element={<Ads />} />

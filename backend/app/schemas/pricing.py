@@ -10,6 +10,8 @@ class PricingIn(BaseModel):
     outros_custos: float = Field(default=0.0, ge=0)
     lucro_desejado: float | None = None
     preco_informado: float | None = None
+    # taxa de conversão esperada do anúncio (fração) para calcular o CPC máximo
+    taxa_conversao: float | None = Field(default=None, gt=0, le=1)
 
     @model_validator(mode="after")
     def _check(self):

@@ -55,3 +55,22 @@ def test_taxas_acima_de_100pct_da_erro():
         lucro_desejado=5.0,
     )
     assert res["erro"] is True
+
+
+def test_metas_de_anuncio():
+    """A precificação também entrega as metas de anúncio: ROAS even e CPC máximo."""
+    res = pricing.simulate(
+        custo_unitario=13.0,
+        qty=1,
+        modo="preco",
+        taxa_shopee_pct=0.20,
+        taxa_fixa=4.0,
+        preco_informado=33.75,
+    )
+    # lucro 10 sobre receita 33.75 -> margem 29.63% -> ROAS even 3.375x
+    assert res["margem_por_venda"] == pytest.approx(10.0, abs=TOL)
+    assert res["roas_even"] == pytest.approx(33.75 / 10.0, abs=1e-6)
+    # CPC máximo = margem da venda × taxa de conversão
+    m2 = next(m for m in res["metas_cpc"] if m["taxa_conversao"] == 0.02)
+    assert m2["cpc_maximo"] == pytest.approx(0.20, abs=TOL)   # 10 × 2%
+    assert m2["cliques_por_venda"] == 50

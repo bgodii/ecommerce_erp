@@ -11,6 +11,7 @@ const links = [
   { to: '/ads', label: 'Ads (manual)', icon: '📣' },
   { sep: 'Relatórios' },
   { to: '/analise-ads', label: 'Análise de ADS', icon: '📣' },
+  { to: '/vinculo-anuncios', label: 'Vincular anúncios', icon: '🔌' },
   { to: '/balanco-diario', label: 'Balanço Diário', icon: '📅' },
   { to: '/estoque-diario', label: 'Estoque Diário', icon: '📉' },
   { to: '/precificacao', label: 'Precificação', icon: '🏷️' },

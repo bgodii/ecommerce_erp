@@ -50,4 +50,17 @@ async def simulate(data: PricingIn, user: CurrentUser, session: SessionDep):
         lucro_desejado=data.lucro_desejado,
         preco_informado=data.preco_informado,
     )
-    return {**result, "custo_unitario": data.custo_unitario, "channel": channel_name}
+    # CPC máximo para a conversão esperada informada pelo usuário
+    cpc_alvo = None
+    if data.taxa_conversao and not result.get("erro") and result.get("margem_por_venda", 0) > 0:
+        cpc_alvo = {
+            "taxa_conversao": data.taxa_conversao,
+            "cliques_por_venda": round(1 / data.taxa_conversao),
+            "cpc_maximo": result["margem_por_venda"] * data.taxa_conversao,
+        }
+    return {
+        **result,
+        "custo_unitario": data.custo_unitario,
+        "channel": channel_name,
+        "cpc_alvo": cpc_alvo,
+    }

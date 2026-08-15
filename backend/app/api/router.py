@@ -6,6 +6,7 @@ from app.api import (
     channels,
     imports,
     kits,
+    listings,
     mappings,
     overview,
     pricing,
@@ -29,4 +30,5 @@ api_router.include_router(reports.router)
 api_router.include_router(pricing.router)
 api_router.include_router(imports.router)
 api_router.include_router(mappings.router)
+api_router.include_router(listings.router)
 api_router.include_router(overview.router)

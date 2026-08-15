@@ -49,9 +49,30 @@ def simulate(
     lucro = receita - taxa_shopee_rs - taxa_afiliado_rs - taxa_fixa_rs - outros_custos - cmv
     preco_equilibrio = (taxa_fixa + outros_custos + cmv) / (qty * (1 - pct_total))
 
+    # --- metas de anúncio derivadas da margem deste preço -----------------------
+    # ROAS even: cada R$1 de venda deixa `margem`; para pagar R$1 de ads é preciso
+    # vender 1/margem. CPC máximo: a margem de UMA venda dividida pelos cliques
+    # necessários para consegui-la (1 / taxa de conversão).
+    margem_pct = (lucro / receita) if receita else 0.0
+    margem_por_venda = lucro
+    roas_even = (1.0 / margem_pct) if margem_pct > 0 else None
+    metas_cpc = []
+    if margem_por_venda > 0:
+        for conv in (0.005, 0.01, 0.015, 0.02, 0.03):
+            metas_cpc.append(
+                {
+                    "taxa_conversao": conv,
+                    "cliques_por_venda": round(1 / conv),
+                    "cpc_maximo": margem_por_venda * conv,
+                }
+            )
+
     return {
         "status": status,
         "erro": False,
+        "roas_even": roas_even,
+        "margem_por_venda": margem_por_venda,
+        "metas_cpc": metas_cpc,
         "preco_unitario": preco,
         "receita_bruta": receita,
         "taxa_shopee_rs": taxa_shopee_rs,

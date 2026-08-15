@@ -299,6 +299,22 @@ export function useDeleteMapping() {
   })
 }
 
+// ---- Anúncios (listings) ----
+export const useListings = () =>
+  useQuery({ queryKey: ['listings'], queryFn: async () => (await api.get('/listings')).data })
+
+export function useLinkListing() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, product_id, kit_id }: { id: number; product_id?: number | null; kit_id?: number | null }) =>
+      (await api.patch(`/listings/${id}`, { product_id: product_id ?? null, kit_id: kit_id ?? null })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['listings'] })
+      qc.invalidateQueries({ queryKey: ['visao-geral'] })
+    },
+  })
+}
+
 // ---- Precificação ----
 export function useSimulatePricing() {
   return useMutation({

@@ -1,4 +1,6 @@
 import { FormEvent, useState } from 'react'
+import { Link } from 'react-router-dom'
+import Th from '../components/Th'
 import { useChannels, useSimulatePricing } from '../hooks/queries'
 import { apiError } from '../lib/api'
 import { fmtBRL, fmtNum, fmtPct } from '../lib/format'
@@ -16,6 +18,7 @@ export default function Precificacao() {
     outros_custos: 0,
     lucro_desejado: 10,
     preco_informado: 0,
+    taxa_conversao: 1, // % esperado de conversão do anúncio
   })
   const set = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
   const res = sim.data
@@ -33,6 +36,7 @@ export default function Precificacao() {
         outros_custos: Number(form.outros_custos),
         lucro_desejado: form.modo === 'lucro' ? Number(form.lucro_desejado) : null,
         preco_informado: form.modo === 'preco' ? Number(form.preco_informado) : null,
+        taxa_conversao: Number(form.taxa_conversao) > 0 ? Number(form.taxa_conversao) / 100 : null,
       })
     } catch (e) {
       setErr(apiError(e))
@@ -126,6 +130,17 @@ export default function Precificacao() {
                   onChange={set('outros_custos')}
                 />
               </div>
+              <div className="field">
+                <label>Conversão esperada do anúncio (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min={0}
+                  value={form.taxa_conversao}
+                  onChange={set('taxa_conversao')}
+                  title="A cada 100 cliques, quantas viram venda. Use o número real da sua Análise de ADS."
+                />
+              </div>
             </div>
             <p className="status-line">A taxa do marketplace e a taxa fixa vêm do e-commerce selecionado.</p>
             <button className="btn" disabled={sim.isPending}>
@@ -161,6 +176,71 @@ export default function Precificacao() {
           )}
         </div>
       </div>
+
+      {res && !res.erro && res.roas_even && (
+        <>
+          <h3 style={{ marginTop: 20 }}>📣 Metas de anúncio para este preço</h3>
+          <div className="grid kpis">
+            <div className="card kpi">
+              <div className="label">ROAS even (mínimo)</div>
+              <div className="value">{fmtNum(res.roas_even, 2)}×</div>
+              <div className="status-line" style={{ margin: 0 }}>
+                = 1 ÷ margem ({fmtPct(res.margem)})
+              </div>
+            </div>
+            <div className="card kpi">
+              <div className="label">Margem por venda</div>
+              <div className="value pos">{fmtBRL(res.margem_por_venda)}</div>
+              <div className="status-line" style={{ margin: 0 }}>
+                é o que você pode gastar em ads por venda
+              </div>
+            </div>
+            {res.cpc_alvo && (
+              <div className="card kpi">
+                <div className="label">CPC máximo ({fmtNum(res.cpc_alvo.taxa_conversao * 100, 1)}% conv.)</div>
+                <div className="value">{fmtBRL(res.cpc_alvo.cpc_maximo)}</div>
+                <div className="status-line" style={{ margin: 0 }}>
+                  {res.cpc_alvo.cliques_por_venda} cliques por venda
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <Th label="Se a conversão for…" help="Percentual de cliques que viram venda" />
+                  <Th label="Cliques por venda" help="Quantos cliques você paga até sair uma venda (1 ÷ conversão)" num />
+                  <Th label="CPC máximo" help="Teto que o clique pode custar: margem da venda × taxa de conversão" num />
+                  <Th label="Gasto máx. por venda" help="Quanto de anúncio cabe em uma venda sem dar prejuízo (= margem por venda)" num />
+                </tr>
+              </thead>
+              <tbody>
+                {res.metas_cpc?.map((m: any) => (
+                  <tr
+                    key={m.taxa_conversao}
+                    className={
+                      res.cpc_alvo && Math.abs(m.taxa_conversao - res.cpc_alvo.taxa_conversao) < 1e-9
+                        ? 'row-selected'
+                        : ''
+                    }
+                  >
+                    <td>{fmtNum(m.taxa_conversao * 100, 1)}%</td>
+                    <td className="num">{m.cliques_por_venda}</td>
+                    <td className="num" style={{ fontWeight: 700 }}>{fmtBRL(m.cpc_maximo)}</td>
+                    <td className="num">{fmtBRL(res.margem_por_venda)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="status-line">
+            Quanto pior a conversão, <b>menos</b> você pode pagar por clique. Compare o CPC máximo
+            com o CPC real de cada anúncio em <Link className="link" to="/analise-ads">Análise de ADS</Link>.
+          </p>
+        </>
+      )}
     </>
   )
 }

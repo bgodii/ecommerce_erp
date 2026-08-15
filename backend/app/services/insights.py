@@ -173,11 +173,32 @@ async def build_overview(
         ).scalars()
     }
     margem_loja = cur["margem"]
+
+    # Margem REALIZADA por produto/kit no período — usada quando o anúncio está
+    # vinculado a um item (mais preciso que a margem média da loja).
+    sku_to_pid = {p.sku: p.id for p in snap.products}
+    sku_to_kid = {k.sku: k.id for k in snap.kits}
+    margem_produto: dict[int, float] = {}
+    margem_kit: dict[int, float] = {}
+    for it in items:
+        if it["receita"] <= 0:
+            continue
+        m = it["lucro"] / it["receita"]
+        if it["tipo"] == "product" and it["sku"] in sku_to_pid:
+            margem_produto[sku_to_pid[it["sku"]]] = m
+        elif it["tipo"] == "kit" and it["sku"] in sku_to_kid:
+            margem_kit[sku_to_kid[it["sku"]]] = m
+
     ads_produtos = []
     for s in chosen:
         margem_ref = margem_loja
         fonte_margem = "loja"
         l = listings.get(s.listing_ref)
+        if l is not None:
+            if l.product_id and l.product_id in margem_produto:
+                margem_ref, fonte_margem = margem_produto[l.product_id], "produto"
+            elif l.kit_id and l.kit_id in margem_kit:
+                margem_ref, fonte_margem = margem_kit[l.kit_id], "kit"
         roas_eq = (1.0 / margem_ref) if margem_ref > 0 else None
         if s.spend <= 0:
             continue
@@ -239,6 +260,10 @@ async def build_overview(
                 "roas_equilibrio": roas_eq,  # alias (compat)
                 "lucro_estimado": s.gmv * margem_ref - s.spend if margem_ref > 0 else None,
                 "fonte_margem": fonte_margem,
+                "margem_usada": margem_ref,
+                "vinculado_a": (
+                    (l.product_id and "produto") or (l.kit_id and "kit") or None
+                ) if l else None,
                 "veredito": veredito,
                 # funil
                 "impressoes": s.impressions,

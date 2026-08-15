@@ -181,4 +181,9 @@ export interface PricingResult {
   markup?: number
   item_nome?: string
   custo_unitario?: number
+  // metas de anúncio derivadas da margem deste preço
+  roas_even?: number | null
+  margem_por_venda?: number
+  metas_cpc?: { taxa_conversao: number; cliques_por_venda: number; cpc_maximo: number }[]
+  cpc_alvo?: { taxa_conversao: number; cliques_por_venda: number; cpc_maximo: number } | null
 }
